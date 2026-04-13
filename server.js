@@ -171,13 +171,16 @@ const wss = new WebSocketServer({ server });
 // Track connections by role: { page: ws | null, agent: ws | null }
 const peers = { page: null, agent: null };
 
-// Ping/pong heartbeat to keep Render proxy connections alive
-const HEARTBEAT_INTERVAL = 25000; // 25s (Render times out idle connections at ~60s)
+// Ping/pong heartbeat to keep Render proxy connections alive and detect dead clients
+const HEARTBEAT_INTERVAL = 10000; // 10s — aggressive to survive Render's proxy
 const heartbeat = setInterval(() => {
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.ping();
+    if (!client.isAlive) {
+      console.log('[ws] Terminating dead connection');
+      return client.terminate();
     }
+    client.isAlive = false;
+    client.ping();
   });
 }, HEARTBEAT_INTERVAL);
 

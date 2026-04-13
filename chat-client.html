@@ -728,6 +728,8 @@
     // WEBSOCKET CONNECTION
     // ════════════════════════════════════════════════════════════
 
+    var keepaliveInterval = null;
+
     function connectWebSocket() {
       if (!location.host) {
         addMessage('error', 'Open dit bestand via de server (http://localhost:3001/chat-client.html), niet als file://');
@@ -744,6 +746,14 @@
         wsConnected = true;
         updateConnectionStatus();
         ws.send(JSON.stringify({ type: 'register', role: 'agent' }));
+
+        // Client-side keepalive to prevent Render proxy from dropping idle connections
+        if (keepaliveInterval) clearInterval(keepaliveInterval);
+        keepaliveInterval = setInterval(function() {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 8000);
       };
 
       ws.onmessage = function(event) {
@@ -798,6 +808,7 @@
 
       ws.onclose = function() {
         console.log('[Chat] Disconnected, reconnecting in 3s...');
+        if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
         wsConnected = false;
         pageConnected = false;
         ws = null;

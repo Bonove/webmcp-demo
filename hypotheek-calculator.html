@@ -1594,6 +1594,8 @@
 
     var ws = null;
     var reconnectTimeout = null;
+    var toolsDiscovered = false;
+    var keepaliveInterval = null;
 
     function connect() {
       var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1605,6 +1607,13 @@
       ws.onopen = function() {
         console.log('[WebMCP Bridge] Connected, registering as page');
         ws.send(JSON.stringify({ type: 'register', role: 'page' }));
+
+        if (keepaliveInterval) clearInterval(keepaliveInterval);
+        keepaliveInterval = setInterval(function() {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 8000);
       };
 
       ws.onmessage = function(event) {
@@ -1623,8 +1632,11 @@
             if (msg.role === 'agent') {
               setConnectionState(true);
               ws.send(JSON.stringify({ type: 'tools_available', tools: tools }));
-              var toolNames = tools.map(function(t) { return t.name; }).join(', ');
-              addActivity('\uD83D\uDD0D', tools.length + ' tools ontdekt via WebMCP', toolNames, 'discovery');
+              if (!toolsDiscovered) {
+                toolsDiscovered = true;
+                var toolNames = tools.map(function(t) { return t.name; }).join(', ');
+                addActivity('\uD83D\uDD0D', tools.length + ' tools ontdekt via WebMCP', toolNames, 'discovery');
+              }
               console.log('[WebMCP Bridge] Sent tools_available with', tools.length, 'tools');
             }
             break;
@@ -1684,6 +1696,7 @@
 
       ws.onclose = function() {
         console.log('[WebMCP Bridge] Disconnected, reconnecting in 3s...');
+        if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
         setConnectionState(false);
         ws = null;
         if (reconnectTimeout) clearTimeout(reconnectTimeout);
