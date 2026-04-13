@@ -53,56 +53,6 @@
       color: var(--cb-gray-800);
       background: var(--cb-gray-100);
       line-height: 1.6;
-      padding-top: 36px;
-    }
-
-    /* ── WebMCP Status Bar ── */
-    .webmcp-status {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      z-index: 1000;
-      transition: background 0.3s, color 0.3s;
-    }
-
-    .webmcp-status .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-      opacity: 0.7;
-    }
-
-    .webmcp-status.disconnected {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .webmcp-status.waiting {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .webmcp-status.connected {
-      background: #d1fae5;
-      color: #065f46;
-    }
-
-    .webmcp-status.executing {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-
-    .webmcp-status.executing .status-dot {
-      animation: pulse 1s infinite;
     }
 
     /* ── Header ── */
@@ -115,8 +65,194 @@
       align-items: center;
       justify-content: space-between;
       position: sticky;
-      top: 36px;
+      top: 0;
       z-index: 100;
+    }
+
+    /* ── Activity Panel ── */
+    .activity-panel {
+      position: fixed;
+      right: 0;
+      top: 64px;
+      width: 380px;
+      height: calc(100vh - 64px);
+      background: rgba(13, 17, 23, 0.95);
+      border-left: 3px solid var(--cb-blue);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      color: #e6edf3;
+    }
+
+    .activity-panel-header {
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+    }
+
+    .activity-panel-header h3 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .activity-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #ef4444;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .activity-dot.connected {
+      background: #22c55e;
+      animation: activityPulse 2s infinite;
+    }
+
+    @keyframes activityPulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+      50% { opacity: 0.85; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
+    }
+
+    .activity-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+
+    .activity-feed::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .activity-feed::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .activity-feed::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
+    }
+
+    .activity-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      animation: activitySlideIn 0.35s ease-out;
+    }
+
+    @keyframes activitySlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .activity-item-icon {
+      flex-shrink: 0;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .activity-item-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .activity-item-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+
+    .activity-item-time {
+      font-size: 11px;
+      color: #8b949e;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      flex-shrink: 0;
+    }
+
+    .activity-item-title {
+      font-weight: 600;
+      color: #e6edf3;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .activity-item-detail {
+      font-size: 12px;
+      color: #8b949e;
+      margin-top: 3px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .activity-item.type-connect .activity-item-title { color: #58a6ff; }
+    .activity-item.type-disconnect .activity-item-title { color: #f85149; }
+    .activity-item.type-user .activity-item-title { color: #d2a8ff; }
+    .activity-item.type-tool .activity-item-title { color: #79c0ff; }
+    .activity-item.type-executing .activity-item-title { color: #ffa657; }
+    .activity-item.type-result .activity-item-title { color: #56d364; }
+    .activity-item.type-result .activity-item-detail { color: #56d364; }
+    .activity-item.type-ai .activity-item-title { color: #f0883e; }
+
+    .tool-badge {
+      display: inline-block;
+      background: rgba(0, 80, 240, 0.25);
+      color: #58a6ff;
+      padding: 1px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'SF Mono', 'Consolas', monospace;
+    }
+
+    .activity-params {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin-top: 4px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 11px;
+      color: #8b949e;
+      max-height: 80px;
+      overflow: hidden;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    /* Responsive: bottom bar on narrow screens */
+    @media (max-width: 1199px) {
+      .activity-panel {
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 200px;
+        border-left: none;
+        border-top: 3px solid var(--cb-blue);
+      }
+
+      body {
+        padding-bottom: 200px;
+      }
     }
 
     .cb-logo {
@@ -598,10 +734,13 @@
 </head>
 <body>
 
-  <!-- ═══ WebMCP STATUS BAR ═══ -->
-  <div class="webmcp-status disconnected" id="webmcpStatus">
-    <span class="status-dot"></span>
-    <span class="status-text">Verbinding maken...</span>
+  <!-- ═══ ACTIVITY PANEL ═══ -->
+  <div class="activity-panel" id="activityPanel">
+    <div class="activity-panel-header">
+      <div class="activity-dot" id="activityDot"></div>
+      <h3>Agent Activity</h3>
+    </div>
+    <div class="activity-feed" id="activityFeed"></div>
   </div>
 
   <!-- ═══ HEADER ═══ -->
@@ -1167,15 +1306,69 @@
   <script>
   (function() {
     // ════════════════════════════════════════════════════════════
-    // STATUS BAR MANAGEMENT
+    // ACTIVITY PANEL MANAGEMENT
     // ════════════════════════════════════════════════════════════
 
-    var statusEl = document.getElementById('webmcpStatus');
-    var statusTextEl = statusEl.querySelector('.status-text');
+    var activityFeed = document.getElementById('activityFeed');
+    var activityDot = document.getElementById('activityDot');
+    var isAgentConnected = false;
 
-    function setStatus(state, message) {
-      statusEl.className = 'webmcp-status ' + state;
-      statusTextEl.textContent = message;
+    function setConnectionState(connected) {
+      isAgentConnected = connected;
+      if (connected) {
+        activityDot.classList.add('connected');
+      } else {
+        activityDot.classList.remove('connected');
+      }
+    }
+
+    function addActivity(icon, title, detail, type) {
+      var item = document.createElement('div');
+      item.className = 'activity-item type-' + (type || 'info');
+
+      var now = new Date();
+      var time = now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      var html = '<div class="activity-item-icon">' + icon + '</div>';
+      html += '<div class="activity-item-body">';
+      html += '<div class="activity-item-header">';
+      html += '<span class="activity-item-time">' + time + '</span>';
+      html += '<span class="activity-item-title">' + escapeHtml(title) + '</span>';
+      html += '</div>';
+      if (detail) {
+        html += '<div class="activity-item-detail">' + detail + '</div>';
+      }
+      html += '</div>';
+
+      item.innerHTML = html;
+      activityFeed.appendChild(item);
+      activityFeed.scrollTop = activityFeed.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function formatToolParams(params) {
+      var html = '<div class="activity-params">';
+      html += escapeHtml(JSON.stringify(params, null, 1));
+      html += '</div>';
+      return html;
+    }
+
+    function formatToolResult(result) {
+      if (!result) return '';
+      var keys = Object.keys(result);
+      var parts = [];
+      for (var i = 0; i < Math.min(keys.length, 5); i++) {
+        var k = keys[i];
+        var v = result[k];
+        if (typeof v === 'object' && v !== null) continue;
+        parts.push(escapeHtml(k) + ': ' + escapeHtml(String(v)));
+      }
+      return parts.join(' &bull; ');
     }
 
     // ════════════════════════════════════════════════════════════
@@ -1427,7 +1620,7 @@
       ws.onopen = function() {
         console.log('[WebMCP Bridge] Connected, registering as page');
         ws.send(JSON.stringify({ type: 'register', role: 'page' }));
-        setStatus('waiting', 'Wachten op AI agent...');
+        addActivity('\uD83D\uDD0C', 'Verbonden met relay server', 'Wachten op AI agent...', 'connect');
       };
 
       ws.onmessage = function(event) {
@@ -1444,7 +1637,8 @@
         switch (msg.type) {
           case 'peer_connected':
             if (msg.role === 'agent') {
-              setStatus('connected', 'AI agent verbonden');
+              setConnectionState(true);
+              addActivity('\uD83D\uDD0C', 'AI Agent verbonden', 'Tools worden gedeeld...', 'connect');
               ws.send(JSON.stringify({ type: 'tools_available', tools: tools }));
               console.log('[WebMCP Bridge] Sent tools_available with', tools.length, 'tools');
             }
@@ -1452,8 +1646,19 @@
 
           case 'peer_disconnected':
             if (msg.role === 'agent') {
-              setStatus('waiting', 'Wachten op AI agent...');
+              setConnectionState(false);
+              addActivity('\uD83D\uDD0C', 'AI Agent losgekoppeld', null, 'disconnect');
             }
+            break;
+
+          case 'user_message':
+            addActivity('\uD83D\uDCAC', 'Gebruiker', escapeHtml(msg.text || ''), 'user');
+            break;
+
+          case 'assistant_message':
+            var aiText = msg.text || '';
+            if (aiText.length > 150) aiText = aiText.substring(0, 150) + '...';
+            addActivity('\uD83E\uDD16', 'AI Antwoord', escapeHtml(aiText), 'ai');
             break;
 
           case 'tool_call':
@@ -1461,8 +1666,11 @@
             var toolArgs = msg.arguments || msg.args || {};
             var callId = msg.id;
 
-            setStatus('executing', 'Tool wordt uitgevoerd: ' + toolName + '...');
+            addActivity('\uD83D\uDD27', 'Tool aanroep: ' + toolName, '<span class="tool-badge">' + escapeHtml(toolName) + '</span>' + formatToolParams(toolArgs), 'tool');
+
             console.log('[WebMCP Bridge] Executing tool:', toolName, toolArgs);
+
+            addActivity('\u23F3', 'Uitvoeren: ' + toolName, null, 'executing');
 
             var handlerPromise;
             if (toolName === 'bereken_maandlasten') {
@@ -1481,7 +1689,7 @@
                   result: result
                 }));
               }
-              setStatus('connected', 'AI agent verbonden');
+              addActivity('\u2705', 'Resultaat verzonden', formatToolResult(result), 'result');
               console.log('[WebMCP Bridge] Sent tool_result for', toolName);
             }).catch(function(err) {
               if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1491,7 +1699,7 @@
                   result: { error: err.message }
                 }));
               }
-              setStatus('connected', 'AI agent verbonden');
+              addActivity('\u274C', 'Fout', escapeHtml(err.message), 'disconnect');
             });
             break;
 
@@ -1502,7 +1710,8 @@
 
       ws.onclose = function() {
         console.log('[WebMCP Bridge] Disconnected, reconnecting in 3s...');
-        setStatus('disconnected', 'Geen verbinding met relay server');
+        setConnectionState(false);
+        addActivity('\uD83D\uDD0C', 'Verbinding verbroken', 'Opnieuw verbinden over 3s...', 'disconnect');
         ws = null;
         if (reconnectTimeout) clearTimeout(reconnectTimeout);
         reconnectTimeout = setTimeout(connect, 3000);
