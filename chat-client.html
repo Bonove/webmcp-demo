@@ -670,11 +670,11 @@
       });
 
       // Paragraphs: double newlines
-      html = html.replace(/\n\n/g, '</p><p>');
+      html = html.replace(/\n\n/g, '</div><div>');
       // Single newlines inside paragraphs
       html = html.replace(/\n/g, '<br>');
 
-      return '<p>' + html + '</p>';
+      return '<div>' + html + '</div>';
     }
 
     function setInputEnabled(enabled) {
@@ -710,6 +710,10 @@
     // ════════════════════════════════════════════════════════════
 
     function connectWebSocket() {
+      if (!location.host) {
+        addMessage('error', 'Open dit bestand via de server (http://localhost:3001/chat-client.html), niet als file://');
+        return;
+      }
       var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       var url = protocol + '//' + location.host;
 
@@ -872,7 +876,8 @@
 
       if (!resp.ok) {
         var errBody = await resp.text();
-        throw new Error('Claude API fout (' + resp.status + '): ' + errBody);
+        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || errBody; } catch(e) {}
+        throw new Error('Claude API fout (' + resp.status + '): ' + errMsg.substring(0, 150));
       }
 
       var data = await resp.json();
@@ -1008,7 +1013,8 @@
 
       if (!resp.ok) {
         var errBody = await resp.text();
-        throw new Error('OpenAI API fout (' + resp.status + '): ' + errBody);
+        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || errBody; } catch(e) {}
+        throw new Error('OpenAI API fout (' + resp.status + '): ' + errMsg.substring(0, 150));
       }
 
       var data = await resp.json();
@@ -1116,7 +1122,7 @@
                 parts.push({
                   functionResponse: {
                     name: block._toolName || 'unknown',
-                    response: { result: JSON.parse(block.content) }
+                    response: { result: (function() { try { return JSON.parse(block.content); } catch(e) { return { raw: block.content || '' }; } })() }
                   }
                 });
               } else if (block.type === 'text') {
@@ -1172,7 +1178,8 @@
 
       if (!resp.ok) {
         var errBody = await resp.text();
-        throw new Error('Gemini API fout (' + resp.status + '): ' + errBody);
+        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || errBody; } catch(e) {}
+        throw new Error('Gemini API fout (' + resp.status + '): ' + errMsg.substring(0, 150));
       }
 
       var data = await resp.json();
@@ -1347,22 +1354,16 @@
           }
         }
 
-        // If there's a final text response (no more tool calls), show it and stop
-        if (response.text && !(response.toolCalls && response.toolCalls.length > 0)) {
+        // Show any final text response
+        if (response.text) {
           hideTypingIndicator();
           addMessage('assistant', response.text);
-          // Store in messages
           messages.push({ role: 'assistant', content: response.text });
         } else if (!response.toolCalls || response.toolCalls.length === 0) {
-          // No text and no tool calls — edge case
-          if (!response.text) {
-            hideTypingIndicator();
-            addMessage('assistant', '(Geen antwoord ontvangen)');
-          }
+          hideTypingIndicator();
+          addMessage('assistant', '(Geen antwoord ontvangen)');
         }
 
-        // If we just had tool calls but needsToolResults was false, we still
-        // need the text that came with them (already shown above). Just break.
         break;
       }
 
