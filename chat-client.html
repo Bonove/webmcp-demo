@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WebMCP Chat - Centraal Beheer</title>
+  <title>Persoonlijke Assistent</title>
   <style>
     /* ── Reset & Base ── */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -443,12 +443,12 @@
 
     <!-- Chat Area -->
     <div class="chat-area" id="chatArea">
-      <div class="msg system">WebMCP Chat Client -- verbinding wordt gemaakt...</div>
+      <div class="msg assistant">Hi Tristan! Hoe kan ik je vandaag helpen?</div>
     </div>
 
     <!-- Input Area -->
     <div class="input-area">
-      <textarea id="userInput" rows="1" placeholder="Stel een vraag over hypotheken..." disabled></textarea>
+      <textarea id="userInput" rows="1" placeholder="Typ een bericht..." disabled></textarea>
       <button class="send-btn" id="sendBtn" disabled title="Verstuur">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" y1="2" x2="11" y2="13"/>
@@ -493,7 +493,7 @@
     // CONSTANTS
     // ════════════════════════════════════════════════════════════
 
-    var SYSTEM_PROMPT = 'Je bent een hypotheekadviseur van Centraal Beheer. Je helpt klanten met vragen over hypotheken.\n\nJe hebt toegang tot tools op de Centraal Beheer website. Gebruik deze tools om berekeningen te maken en advies te geven. Gebruik ALTIJD de tools wanneer een klant vraagt naar maandlasten, hypotheekkosten, of advies \u2014 geef nooit zelf een schatting zonder de tool te gebruiken.\n\nBeschikbare tools:\n- bereken_maandlasten: Bereken exacte maandlasten voor een hypotheek\n- get_hypotheek_advies: Geef gepersonaliseerd hypotheekadvies\n\nAntwoord altijd in het Nederlands. Wees vriendelijk, helder en professioneel. Geef na een berekening een korte samenvatting van de belangrijkste cijfers.';
+    var SYSTEM_PROMPT = 'Je bent de persoonlijke AI-assistent van Tristan. Je kent Tristan al een tijdje en helpt hem met allerlei dagelijkse taken.\n\nWat je over Tristan weet:\n- Naam: Tristan van Doorn\n- Leeftijd: 34 jaar\n- Inkomen: \u20AC65.000 bruto per jaar\n- Burgerlijke staat: alleenstaand\n- Woonsituatie: huurt momenteel\n\nJe hebt via WebMCP verbinding met de Centraal Beheer website. Dit betekent dat je tools op die website kunt aanroepen om hypotheekberekeningen te maken. Als Tristan vraagt over hypotheken of woningfinanciering:\n1. Zeg eerst dat je even gaat kijken wat je kunt vinden\n2. Vertel dan dat je op Centraal Beheer een berekening kunt maken via hun website\n3. Bevestig welke gegevens je al hebt en vraag alleen wat je nog mist (bijv. gewenst hypotheekbedrag of woningwaarde)\n4. Gebruik dan de tools om de berekening te doen\n\nBeschikbare tools (via Centraal Beheer website):\n- bereken_maandlasten: Bereken exacte maandlasten voor een hypotheek\n- get_hypotheek_advies: Geef gepersonaliseerd hypotheekadvies\n\nGebruik ALTIJD de tools voor berekeningen \u2014 geef nooit zelf een schatting. Antwoord altijd in het Nederlands. Wees informeel en vriendelijk, alsof je met een bekende praat.';
 
     // ════════════════════════════════════════════════════════════
     // DOM REFERENCES
@@ -518,7 +518,7 @@
     var ws = null;
     var reconnectTimeout = null;
     var tools = [];           // Tool definitions from the page
-    var messages = [];        // Conversation history (Claude format as canonical)
+    var messages = [{ role: 'assistant', content: 'Hi Tristan! Hoe kan ik je vandaag helpen?' }];
     var isProcessing = false;
     var pageConnected = false;
     var wsConnected = false;
