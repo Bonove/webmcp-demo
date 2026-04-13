@@ -228,10 +228,9 @@
       font-family: 'SF Mono', 'Consolas', monospace;
       font-size: 11px;
       color: #8b949e;
-      max-height: 80px;
-      overflow: hidden;
       line-height: 1.5;
-      word-break: break-all;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     /* Responsive: bottom bar on narrow screens */
@@ -1349,23 +1348,12 @@
     }
 
     function formatToolParams(params) {
-      var html = '<div class="activity-params">';
-      html += escapeHtml(JSON.stringify(params, null, 1));
-      html += '</div>';
-      return html;
+      return '<div class="activity-params">Ontvangen input:\n' + escapeHtml(JSON.stringify(params, null, 2)) + '</div>';
     }
 
     function formatToolResult(result) {
       if (!result) return '';
-      var keys = Object.keys(result);
-      var parts = [];
-      for (var i = 0; i < Math.min(keys.length, 5); i++) {
-        var k = keys[i];
-        var v = result[k];
-        if (typeof v === 'object' && v !== null) continue;
-        parts.push(escapeHtml(k) + ': ' + escapeHtml(String(v)));
-      }
-      return parts.join(' &bull; ');
+      return '<div class="activity-params">Gegenereerd:\n' + escapeHtml(JSON.stringify(result, null, 2)) + '</div>';
     }
 
     // ════════════════════════════════════════════════════════════
