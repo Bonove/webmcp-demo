@@ -203,14 +203,11 @@
       word-break: break-word;
     }
 
-    .activity-item.type-connect .activity-item-title { color: #58a6ff; }
-    .activity-item.type-disconnect .activity-item-title { color: #f85149; }
-    .activity-item.type-user .activity-item-title { color: #d2a8ff; }
+    .activity-item.type-discovery .activity-item-title { color: #58a6ff; }
     .activity-item.type-tool .activity-item-title { color: #79c0ff; }
     .activity-item.type-executing .activity-item-title { color: #ffa657; }
     .activity-item.type-result .activity-item-title { color: #56d364; }
     .activity-item.type-result .activity-item-detail { color: #56d364; }
-    .activity-item.type-ai .activity-item-title { color: #f0883e; }
 
     .tool-badge {
       display: inline-block;
@@ -1638,6 +1635,8 @@
             if (msg.role === 'agent') {
               setConnectionState(true);
               ws.send(JSON.stringify({ type: 'tools_available', tools: tools }));
+              var toolNames = tools.map(function(t) { return t.name; }).join(', ');
+              addActivity('\uD83D\uDD0D', tools.length + ' tools ontdekt via WebMCP', toolNames, 'discovery');
               console.log('[WebMCP Bridge] Sent tools_available with', tools.length, 'tools');
             }
             break;
@@ -1646,16 +1645,6 @@
             if (msg.role === 'agent') {
               setConnectionState(false);
             }
-            break;
-
-          case 'user_message':
-            addActivity('\uD83D\uDCAC', 'Gebruiker', escapeHtml(msg.text || ''), 'user');
-            break;
-
-          case 'assistant_message':
-            var aiText = msg.text || '';
-            if (aiText.length > 150) aiText = aiText.substring(0, 150) + '...';
-            addActivity('\uD83E\uDD16', 'AI Antwoord', escapeHtml(aiText), 'ai');
             break;
 
           case 'tool_call':
