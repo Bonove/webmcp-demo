@@ -1,9 +1,17 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = process.env.PORT || 3001;
+
+// API key config from environment variables
+const API_KEYS = {
+  claude: process.env.ANTHROPIC_API_KEY || '',
+  openai: process.env.OPENAI_API_KEY || '',
+  gemini: process.env.GEMINI_API_KEY || '',
+};
 
 // MIME type map
 const MIME_TYPES = {
@@ -29,6 +37,103 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  // ── GET /api/providers ──
+  if (req.method === 'GET' && req.url === '/api/providers') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      claude: !!API_KEYS.claude,
+      openai: !!API_KEYS.openai,
+      gemini: !!API_KEYS.gemini,
+    }));
+    return;
+  }
+
+  // ── POST /api/chat ──
+  if (req.method === 'POST' && req.url === '/api/chat') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(body);
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Ongeldige JSON' }));
+        return;
+      }
+
+      const { provider, body: apiBody } = parsed;
+
+      if (!provider || !['claude', 'openai', 'gemini'].includes(provider)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Onbekende provider: ' + provider }));
+        return;
+      }
+
+      const apiKey = API_KEYS[provider];
+      if (!apiKey) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'API key niet geconfigureerd voor ' + provider }));
+        return;
+      }
+
+      const payload = JSON.stringify(apiBody);
+      let options;
+
+      if (provider === 'claude') {
+        options = {
+          hostname: 'api.anthropic.com',
+          path: '/v1/messages',
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(payload),
+          },
+        };
+      } else if (provider === 'openai') {
+        options = {
+          hostname: 'api.openai.com',
+          path: '/v1/chat/completions',
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + apiKey,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
+        };
+      } else if (provider === 'gemini') {
+        options = {
+          hostname: 'generativelanguage.googleapis.com',
+          path: '/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(apiKey),
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
+        };
+      }
+
+      const proxyReq = https.request(options, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, {
+          'Content-Type': proxyRes.headers['content-type'] || 'application/json',
+        });
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on('error', (err) => {
+        console.error('[proxy] Error forwarding to', provider, ':', err.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Proxy fout: ' + err.message }));
+      });
+
+      proxyReq.write(payload);
+      proxyReq.end();
+    });
     return;
   }
 

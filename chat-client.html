@@ -461,22 +461,26 @@
   <!-- Settings Modal -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal">
-      <h2>API Keys</h2>
-      <div class="field">
-        <label for="keysClaude">Anthropic (Claude)</label>
-        <input type="password" id="keysClaude" placeholder="sk-ant-..." autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="keysOpenai">OpenAI (GPT-4o)</label>
-        <input type="password" id="keysOpenai" placeholder="sk-..." autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="keysGemini">Google (Gemini)</label>
-        <input type="password" id="keysGemini" placeholder="AIza..." autocomplete="off">
+      <h2>Beschikbare modellen</h2>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+        API keys worden server-side beheerd via environment variables.
+      </p>
+      <div class="field" style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="statusClaude" style="font-size: 16px;">--</span>
+          <span>Claude Sonnet</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="statusOpenai" style="font-size: 16px;">--</span>
+          <span>GPT-4o</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="statusGemini" style="font-size: 16px;">--</span>
+          <span>Gemini Flash</span>
+        </div>
       </div>
       <div class="btn-row">
-        <button id="modalCancel">Annuleren</button>
-        <button class="primary" id="modalSave">Opslaan</button>
+        <button id="modalClose">Sluiten</button>
       </div>
     </div>
   </div>
@@ -502,11 +506,10 @@
     var connectionDot = document.getElementById('connectionDot');
     var settingsBtn = document.getElementById('settingsBtn');
     var settingsModal = document.getElementById('settingsModal');
-    var modalCancel = document.getElementById('modalCancel');
-    var modalSave = document.getElementById('modalSave');
-    var keysClaude = document.getElementById('keysClaude');
-    var keysOpenai = document.getElementById('keysOpenai');
-    var keysGemini = document.getElementById('keysGemini');
+    var modalClose = document.getElementById('modalClose');
+    var statusClaude = document.getElementById('statusClaude');
+    var statusOpenai = document.getElementById('statusOpenai');
+    var statusGemini = document.getElementById('statusGemini');
 
     // ════════════════════════════════════════════════════════════
     // STATE
@@ -519,6 +522,7 @@
     var isProcessing = false;
     var pageConnected = false;
     var wsConnected = false;
+    var availableProviders = { claude: false, openai: false, gemini: false };
 
     // Map of callId -> { resolve, reject } for pending tool results
     var pendingToolResults = new Map();
@@ -528,19 +532,10 @@
     // ════════════════════════════════════════════════════════════
 
     function loadSettings() {
-      keysClaude.value = localStorage.getItem('apikey_claude') || '';
-      keysOpenai.value = localStorage.getItem('apikey_openai') || '';
-      keysGemini.value = localStorage.getItem('apikey_gemini') || '';
       var saved = localStorage.getItem('selected_model');
       if (saved && ['claude', 'openai', 'gemini'].indexOf(saved) !== -1) {
         modelSelect.value = saved;
       }
-    }
-
-    function saveSettings() {
-      localStorage.setItem('apikey_claude', keysClaude.value.trim());
-      localStorage.setItem('apikey_openai', keysOpenai.value.trim());
-      localStorage.setItem('apikey_gemini', keysGemini.value.trim());
     }
 
     modelSelect.addEventListener('change', function() {
@@ -548,20 +543,44 @@
     });
 
     // ════════════════════════════════════════════════════════════
+    // PROVIDER AVAILABILITY
+    // ════════════════════════════════════════════════════════════
+
+    function updateProviderStatus() {
+      var statusMap = { claude: statusClaude, openai: statusOpenai, gemini: statusGemini };
+      for (var key in statusMap) {
+        if (availableProviders[key]) {
+          statusMap[key].textContent = '\u2705';
+          statusMap[key].title = 'Geconfigureerd';
+        } else {
+          statusMap[key].textContent = '\u274C';
+          statusMap[key].title = 'Niet geconfigureerd';
+        }
+      }
+    }
+
+    async function fetchProviders() {
+      try {
+        var resp = await fetch('/api/providers');
+        if (resp.ok) {
+          availableProviders = await resp.json();
+          updateProviderStatus();
+        }
+      } catch (e) {
+        console.warn('[Chat] Could not fetch providers:', e);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
     // SETTINGS MODAL
     // ════════════════════════════════════════════════════════════
 
     settingsBtn.addEventListener('click', function() {
-      loadSettings();
+      updateProviderStatus();
       settingsModal.classList.add('visible');
     });
 
-    modalCancel.addEventListener('click', function() {
-      settingsModal.classList.remove('visible');
-    });
-
-    modalSave.addEventListener('click', function() {
-      saveSettings();
+    modalClose.addEventListener('click', function() {
       settingsModal.classList.remove('visible');
     });
 
@@ -838,11 +857,6 @@
     // AI API ADAPTERS
     // ════════════════════════════════════════════════════════════
 
-    function getApiKey(provider) {
-      var keyMap = { claude: 'apikey_claude', openai: 'apikey_openai', gemini: 'apikey_gemini' };
-      return (localStorage.getItem(keyMap[provider]) || '').trim();
-    }
-
     // ── Claude adapter ──
 
     function claudeConvertTools(toolDefs) {
@@ -856,28 +870,24 @@
     }
 
     async function callClaude(msgs, toolDefs) {
-      var key = getApiKey('claude');
-      var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      var apiBody = {
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: msgs,
+        tools: claudeConvertTools(toolDefs)
+      };
+
+      var resp = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
-          system: SYSTEM_PROMPT,
-          messages: msgs,
-          tools: claudeConvertTools(toolDefs)
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'claude', body: apiBody })
       });
 
       if (!resp.ok) {
         var errBody = await resp.text();
-        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || errBody; } catch(e) {}
-        throw new Error('Claude API fout (' + resp.status + '): ' + errMsg.substring(0, 150));
+        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || JSON.parse(errBody).error || errBody; } catch(e) {}
+        throw new Error('Claude API fout (' + resp.status + '): ' + (typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg)).substring(0, 150));
       }
 
       var data = await resp.json();
@@ -992,29 +1002,25 @@
     }
 
     async function callOpenAI(msgs, toolDefs) {
-      var key = getApiKey('openai');
       var convertedMessages = openaiConvertMessages(msgs);
-      var body = {
+      var apiBody = {
         model: 'gpt-4o',
         messages: convertedMessages
       };
       if (toolDefs.length > 0) {
-        body.tools = openaiConvertTools(toolDefs);
+        apiBody.tools = openaiConvertTools(toolDefs);
       }
 
-      var resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      var resp = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + key,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'openai', body: apiBody })
       });
 
       if (!resp.ok) {
         var errBody = await resp.text();
-        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || errBody; } catch(e) {}
-        throw new Error('OpenAI API fout (' + resp.status + '): ' + errMsg.substring(0, 150));
+        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || JSON.parse(errBody).error || errBody; } catch(e) {}
+        throw new Error('OpenAI API fout (' + resp.status + '): ' + (typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg)).substring(0, 150));
       }
 
       var data = await resp.json();
@@ -1161,25 +1167,24 @@
     }
 
     async function callGemini(msgs, toolDefs) {
-      var key = getApiKey('gemini');
-      var body = {
+      var apiBody = {
         contents: geminiConvertMessages(msgs),
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }
       };
       if (toolDefs.length > 0) {
-        body.tools = geminiConvertTools(toolDefs);
+        apiBody.tools = geminiConvertTools(toolDefs);
       }
 
-      var resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(key), {
+      var resp = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ provider: 'gemini', body: apiBody })
       });
 
       if (!resp.ok) {
         var errBody = await resp.text();
-        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || errBody; } catch(e) {}
-        throw new Error('Gemini API fout (' + resp.status + '): ' + errMsg.substring(0, 150));
+        var errMsg = errBody; try { errMsg = JSON.parse(errBody).error?.message || JSON.parse(errBody).error || errBody; } catch(e) {}
+        throw new Error('Gemini API fout (' + resp.status + '): ' + (typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg)).substring(0, 150));
       }
 
       var data = await resp.json();
@@ -1249,9 +1254,8 @@
       if (!text) return;
 
       var provider = modelSelect.value;
-      var key = getApiKey(provider);
-      if (!key) {
-        addMessage('error', 'Geen API key ingesteld voor ' + modelSelect.options[modelSelect.selectedIndex].text + '. Klik op het tandwiel-icoon om je key in te voeren.');
+      if (!availableProviders[provider]) {
+        addMessage('error', 'Model ' + modelSelect.options[modelSelect.selectedIndex].text + ' is niet beschikbaar. De API key is niet geconfigureerd op de server.');
         return;
       }
 
@@ -1391,6 +1395,7 @@
 
     loadSettings();
     updateConnectionStatus();
+    fetchProviders();
     connectWebSocket();
 
   })();
