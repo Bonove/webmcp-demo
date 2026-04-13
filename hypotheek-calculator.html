@@ -55,6 +55,55 @@
       line-height: 1.6;
     }
 
+    /* ── WebMCP Status Bar ── */
+    .webmcp-status {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 1000;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .webmcp-status .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.7;
+    }
+
+    .webmcp-status.disconnected {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .webmcp-status.waiting {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .webmcp-status.connected {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .webmcp-status.executing {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .webmcp-status.executing .status-dot {
+      animation: pulse 1s infinite;
+    }
+
     /* ── Header ── */
     .cb-header {
       background: var(--cb-white);
@@ -65,7 +114,7 @@
       align-items: center;
       justify-content: space-between;
       position: sticky;
-      top: 0;
+      top: 36px;
       z-index: 100;
     }
 
@@ -475,8 +524,12 @@
       color: var(--cb-gray-600);
     }
 
-    /* ── WebMCP Badge (for demo visibility) ── */
+    /* ── WebMCP Badge (replaced by status bar) ── */
     .webmcp-badge {
+      display: none !important;
+    }
+
+    .webmcp-badge-legacy {
       position: fixed;
       bottom: 20px;
       right: 20px;
@@ -495,7 +548,7 @@
       transition: all 0.3s;
     }
 
-    .webmcp-badge:hover {
+    .webmcp-badge-legacy:hover {
       transform: translateY(-2px);
     }
 
@@ -513,24 +566,10 @@
     }
 
     .webmcp-panel {
-      position: fixed;
-      bottom: 60px;
-      right: 20px;
-      background: var(--cb-gray-800);
-      color: #e0e0e0;
-      padding: 16px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-family: monospace;
-      z-index: 200;
-      box-shadow: var(--cb-shadow-lg);
-      width: 400px;
-      max-height: 300px;
-      overflow-y: auto;
-      display: none;
+      display: none !important;
     }
 
-    .webmcp-panel.visible { display: block; }
+    .webmcp-panel.visible { display: none !important; }
 
     .webmcp-panel .log-entry {
       padding: 4px 0;
@@ -557,6 +596,12 @@
   </style>
 </head>
 <body>
+
+  <!-- ═══ WebMCP STATUS BAR ═══ -->
+  <div class="webmcp-status disconnected" id="webmcpStatus">
+    <span class="status-dot"></span>
+    <span class="status-text">Verbinding maken...</span>
+  </div>
 
   <!-- ═══ HEADER ═══ -->
   <header class="cb-header">
@@ -1115,6 +1160,356 @@
 
       log.prepend(entry);
     }
+  </script>
+
+  <!-- ═══ WebSocket Bridge for Relay Server ═══ -->
+  <script>
+  (function() {
+    // ════════════════════════════════════════════════════════════
+    // STATUS BAR MANAGEMENT
+    // ════════════════════════════════════════════════════════════
+
+    var statusEl = document.getElementById('webmcpStatus');
+    var statusTextEl = statusEl.querySelector('.status-text');
+
+    function setStatus(state, message) {
+      statusEl.className = 'webmcp-status ' + state;
+      statusTextEl.textContent = message;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TOOL SCHEMAS
+    // ════════════════════════════════════════════════════════════
+
+    var formEl = document.getElementById('hypotheekForm');
+    var formToolDescription = formEl.getAttribute('tooldescription');
+
+    var tools = [
+      {
+        name: 'bereken_maandlasten',
+        description: formToolDescription,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            woningwaarde: {
+              type: 'number',
+              description: 'Woningwaarde (WOZ-waarde of koopsom)',
+              minimum: 50000,
+              maximum: 2000000
+            },
+            hypotheekbedrag: {
+              type: 'number',
+              description: 'Het bedrag dat je wilt lenen',
+              minimum: 50000,
+              maximum: 2000000
+            },
+            rentevaste_periode: {
+              type: 'number',
+              description: 'Rentevaste periode in jaren',
+              enum: [1, 5, 10, 15, 20, 30]
+            },
+            hypotheekvorm: {
+              type: 'string',
+              description: 'Type hypotheek',
+              enum: ['annuitair', 'lineair']
+            },
+            looptijd: {
+              type: 'number',
+              description: 'Looptijd van de hypotheek in jaren',
+              enum: [10, 15, 20, 25, 30]
+            },
+            bruto_jaarinkomen: {
+              type: 'number',
+              description: 'Bruto jaarinkomen aanvrager'
+            },
+            heeft_partner: {
+              type: 'string',
+              description: 'Heeft de aanvrager een partner?',
+              enum: ['ja', 'nee']
+            },
+            partner_jaarinkomen: {
+              type: 'number',
+              description: 'Bruto jaarinkomen partner'
+            }
+          },
+          required: ['woningwaarde', 'hypotheekbedrag', 'rentevaste_periode', 'hypotheekvorm', 'looptijd']
+        }
+      },
+      {
+        name: 'get_hypotheek_advies',
+        description: 'Geeft gepersonaliseerd hypotheekadvies op basis van persoonlijke situatie. Retourneert aanbevolen hypotheekvorm, geschatte maximale hypotheek, en tips.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            leeftijd: {
+              type: 'number',
+              description: 'Leeftijd van de aanvrager'
+            },
+            gezinssituatie: {
+              type: 'string',
+              enum: ['alleenstaand', 'samenwonend', 'getrouwd', 'gescheiden'],
+              description: 'Huidige gezinssituatie'
+            },
+            woonsituatie: {
+              type: 'string',
+              enum: ['eerste_woning', 'verhuizen', 'oversluiten', 'verbouwen'],
+              description: 'Doel van de hypotheek'
+            },
+            bruto_jaarinkomen: {
+              type: 'number',
+              description: 'Bruto jaarinkomen aanvrager'
+            },
+            partner_inkomen: {
+              type: 'number',
+              description: 'Bruto jaarinkomen partner (optioneel)'
+            },
+            eigen_geld: {
+              type: 'number',
+              description: 'Beschikbaar eigen geld (optioneel)'
+            }
+          },
+          required: ['leeftijd', 'gezinssituatie', 'woonsituatie', 'bruto_jaarinkomen']
+        }
+      }
+    ];
+
+    // ════════════════════════════════════════════════════════════
+    // ANIMATED FORM FILLING
+    // ════════════════════════════════════════════════════════════
+
+    function animateField(id, value) {
+      return new Promise(function(resolve) {
+        var el = document.getElementById(id);
+        if (!el) { resolve(); return; }
+
+        el.style.borderColor = '#0050f0';
+        el.style.boxShadow = '0 0 0 3px rgba(0, 80, 240, 0.25)';
+        el.value = value;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+
+        setTimeout(function() {
+          el.style.borderColor = '';
+          el.style.boxShadow = '';
+          resolve();
+        }, 250);
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TOOL CALL HANDLERS
+    // ════════════════════════════════════════════════════════════
+
+    function handleBerekenMaandlasten(args) {
+      return new Promise(function(resolve) {
+        resetForm();
+
+        setTimeout(async function() {
+          try {
+            // Fill fields in sequence with animation
+            if (args.woningwaarde !== undefined) {
+              await animateField('woningwaarde', args.woningwaarde);
+            }
+            if (args.hypotheekbedrag !== undefined) {
+              await animateField('hypotheekbedrag', args.hypotheekbedrag);
+            }
+            if (args.rentevaste_periode !== undefined) {
+              await animateField('rentevaste_periode', args.rentevaste_periode);
+            }
+            if (args.hypotheekvorm !== undefined) {
+              await animateField('hypotheekvorm', args.hypotheekvorm);
+            }
+            if (args.looptijd !== undefined) {
+              await animateField('looptijd', args.looptijd);
+            }
+            if (args.bruto_jaarinkomen !== undefined) {
+              await animateField('bruto_jaarinkomen', args.bruto_jaarinkomen);
+            }
+            if (args.heeft_partner === 'ja') {
+              togglePartner(true);
+              if (args.partner_jaarinkomen !== undefined) {
+                await animateField('partner_jaarinkomen', args.partner_jaarinkomen);
+              }
+            }
+
+            // Build formData and calculate
+            var formData = {
+              woningwaarde: parseInt(args.woningwaarde) || 0,
+              hypotheekbedrag: parseInt(args.hypotheekbedrag) || 0,
+              rentevaste_periode: parseInt(args.rentevaste_periode) || 10,
+              hypotheekvorm: args.hypotheekvorm || 'annuitair',
+              looptijd: parseInt(args.looptijd) || 30,
+              bruto_jaarinkomen: parseInt(args.bruto_jaarinkomen) || 0,
+              heeft_partner: args.heeft_partner || 'nee',
+              partner_jaarinkomen: parseInt(args.partner_jaarinkomen) || 0
+            };
+
+            var result = calculateMortgage(formData);
+            displayResults(result);
+            resolve(result);
+          } catch (err) {
+            resolve({ error: err.message });
+          }
+        }, 300);
+      });
+    }
+
+    function handleAdvies(params) {
+      var totalIncome = params.bruto_jaarinkomen + (params.partner_inkomen || 0);
+      var maxHypotheek = Math.round(totalIncome * 4.25);
+      var isStarter = params.woonsituatie === 'eerste_woning';
+      var isYoung = params.leeftijd < 35;
+
+      var aanbevolen_vorm = 'annuitair';
+      var tips = [];
+
+      if (totalIncome > 80000) {
+        tips.push('Met jullie inkomen komen jullie in aanmerking voor de Leef Hypotheek met automatische renteverlaging.');
+      }
+
+      if (isStarter) {
+        tips.push('Als starter kun je mogelijk gebruik maken van de startersvrijstelling (geen overdrachtsbelasting tot \u20AC510.000).');
+        tips.push('Kijk ook naar de Nationale Hypotheek Garantie (NHG) voor hypotheken tot \u20AC435.000.');
+      }
+
+      if (isYoung && isStarter) {
+        tips.push('Tip: begin met annuitair. Je maandlasten zijn lager dan bij lineair, fijn als je net begint.');
+      }
+
+      if (params.leeftijd > 50) {
+        aanbevolen_vorm = 'lineair';
+        tips.push('Op jouw leeftijd kan lineair aantrekkelijker zijn: je bouwt sneller aflossing op richting pensioen.');
+      }
+
+      if (params.gezinssituatie === 'gescheiden') {
+        tips.push('Bij scheiding: laat je bestaande hypotheek opnieuw beoordelen. Mogelijk kun je de hypotheek alleen voortzetten.');
+      }
+
+      if (params.eigen_geld && params.eigen_geld > 0) {
+        tips.push('Met \u20AC' + params.eigen_geld.toLocaleString('nl-NL') + ' eigen geld kun je een lagere hypotheek afsluiten, wat je maandlasten verlaagt.');
+      }
+
+      tips.push('Wil je persoonlijk advies? Bel ons op 055 579 8130 of maak een afspraak met een hypotheekadviseur.');
+
+      var rate10 = INTEREST_RATES[10] / 100 / 12;
+      var totalMonths = 360;
+
+      return {
+        geschatte_maximale_hypotheek: maxHypotheek,
+        aanbevolen_hypotheekvorm: aanbevolen_vorm,
+        indicatieve_rente: INTEREST_RATES[10] + '%',
+        geschatte_maandlasten: Math.round((maxHypotheek * rate10 * Math.pow(1 + rate10, totalMonths)) / (Math.pow(1 + rate10, totalMonths) - 1)),
+        tips: tips,
+        disclaimer: 'Dit is een indicatieve berekening. Voor een definitief aanbod is een persoonlijk adviesgesprek nodig.',
+        contact: {
+          telefoon: '055 579 8130',
+          openingstijden: 'Ma-vr 08:00-18:00, Za 09:00-13:00',
+          url: 'https://www.centraalbeheer.nl/hypotheek'
+        }
+      };
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // WEBSOCKET CONNECTION
+    // ════════════════════════════════════════════════════════════
+
+    var ws = null;
+    var reconnectTimeout = null;
+
+    function connect() {
+      var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var url = protocol + '//' + location.host;
+
+      console.log('[WebMCP Bridge] Connecting to', url);
+      ws = new WebSocket(url);
+
+      ws.onopen = function() {
+        console.log('[WebMCP Bridge] Connected, registering as page');
+        ws.send(JSON.stringify({ type: 'register', role: 'page' }));
+        setStatus('waiting', 'Wachten op AI agent...');
+      };
+
+      ws.onmessage = function(event) {
+        var msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch (e) {
+          console.warn('[WebMCP Bridge] Invalid message:', event.data);
+          return;
+        }
+
+        console.log('[WebMCP Bridge] Received:', msg.type, msg);
+
+        switch (msg.type) {
+          case 'peer_connected':
+            if (msg.role === 'agent') {
+              setStatus('connected', 'AI agent verbonden');
+              ws.send(JSON.stringify({ type: 'tools_available', tools: tools }));
+              console.log('[WebMCP Bridge] Sent tools_available with', tools.length, 'tools');
+            }
+            break;
+
+          case 'peer_disconnected':
+            if (msg.role === 'agent') {
+              setStatus('waiting', 'Wachten op AI agent...');
+            }
+            break;
+
+          case 'tool_call':
+            var toolName = msg.name || msg.tool;
+            var toolArgs = msg.arguments || msg.args || {};
+            var callId = msg.id;
+
+            setStatus('executing', 'Tool wordt uitgevoerd: ' + toolName + '...');
+            console.log('[WebMCP Bridge] Executing tool:', toolName, toolArgs);
+
+            var handlerPromise;
+            if (toolName === 'bereken_maandlasten') {
+              handlerPromise = handleBerekenMaandlasten(toolArgs);
+            } else if (toolName === 'get_hypotheek_advies') {
+              handlerPromise = Promise.resolve(handleAdvies(toolArgs));
+            } else {
+              handlerPromise = Promise.resolve({ error: 'Unknown tool: ' + toolName });
+            }
+
+            handlerPromise.then(function(result) {
+              ws.send(JSON.stringify({
+                type: 'tool_result',
+                id: callId,
+                result: result
+              }));
+              setStatus('connected', 'AI agent verbonden');
+              console.log('[WebMCP Bridge] Sent tool_result for', toolName);
+            }).catch(function(err) {
+              ws.send(JSON.stringify({
+                type: 'tool_result',
+                id: callId,
+                result: { error: err.message }
+              }));
+              setStatus('connected', 'AI agent verbonden');
+            });
+            break;
+
+          default:
+            console.log('[WebMCP Bridge] Unhandled message type:', msg.type);
+        }
+      };
+
+      ws.onclose = function() {
+        console.log('[WebMCP Bridge] Disconnected, reconnecting in 3s...');
+        setStatus('disconnected', 'Geen verbinding met relay server');
+        ws = null;
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        reconnectTimeout = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = function(err) {
+        console.error('[WebMCP Bridge] WebSocket error:', err);
+      };
+    }
+
+    // Start connection
+    connect();
+  })();
   </script>
 
 </body>
