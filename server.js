@@ -1,7 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { WebSocketServer } = require('ws');
+const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = process.env.PORT || 3001;
 
@@ -37,6 +37,14 @@ const server = http.createServer((req, res) => {
   if (urlPath === '/') urlPath = '/hypotheek-calculator.html';
 
   const filePath = path.join(__dirname, urlPath);
+
+  // Prevent path traversal
+  if (!filePath.startsWith(__dirname + path.sep) && filePath !== __dirname) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('Forbidden');
+    return;
+  }
+
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
@@ -71,7 +79,8 @@ wss.on('connection', (ws) => {
 
     // ── Register ──
     if (msg.type === 'register') {
-      role = msg.role; // 'page' or 'agent'
+      role = msg.role;
+      if (role !== 'page' && role !== 'agent') { role = null; return; }
 
       // If there was an old connection for this role, close it
       if (peers[role] && peers[role] !== ws) {
@@ -84,12 +93,12 @@ wss.on('connection', (ws) => {
       // Notify the other side that a peer connected
       const otherRole = role === 'page' ? 'agent' : 'page';
       const other = peers[otherRole];
-      if (other && other.readyState === 1) {
+      if (other && other.readyState === WebSocket.OPEN) {
         other.send(JSON.stringify({ type: 'peer_connected', role }));
       }
 
       // Also tell the newly registered client if the other side is already here
-      if (other && other.readyState === 1) {
+      if (other && other.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'peer_connected', role: otherRole }));
       }
 
@@ -101,7 +110,7 @@ wss.on('connection', (ws) => {
 
     const otherRole = role === 'page' ? 'agent' : 'page';
     const other = peers[otherRole];
-    if (other && other.readyState === 1) {
+    if (other && other.readyState === WebSocket.OPEN) {
       other.send(raw.toString());
     }
   });
@@ -118,7 +127,7 @@ wss.on('connection', (ws) => {
     // Notify the other side
     const otherRole = role === 'page' ? 'agent' : 'page';
     const other = peers[otherRole];
-    if (other && other.readyState === 1) {
+    if (other && other.readyState === WebSocket.OPEN) {
       other.send(JSON.stringify({ type: 'peer_disconnected', role }));
     }
   });
