@@ -1268,6 +1268,11 @@
       addMessage('user', text);
       messages.push({ role: 'user', content: text });
 
+      // Forward to page for activity panel
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'user_message', text: text }));
+      }
+
       // Clear input
       userInput.value = '';
       userInput.style.height = 'auto';
@@ -1363,6 +1368,11 @@
           hideTypingIndicator();
           addMessage('assistant', response.text);
           messages.push({ role: 'assistant', content: response.text });
+
+          // Forward to page for activity panel
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'assistant_message', text: response.text }));
+          }
         } else if (!response.toolCalls || response.toolCalls.length === 0) {
           hideTypingIndicator();
           addMessage('assistant', '(Geen antwoord ontvangen)');
