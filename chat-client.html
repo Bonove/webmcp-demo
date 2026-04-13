@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WebMCP Chat - Centraal Beheer</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0d1117;
+      --bg-surface: #161b22;
+      --bg-bubble-user: #1a6bff;
+      --bg-bubble-assistant: #21262d;
+      --bg-bubble-error: #3d1418;
+      --border: #30363d;
+      --border-focus: #1a6bff;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --text-on-blue: #ffffff;
+      --green: #3fb950;
+      --green-dim: #1a3a2a;
+      --red: #f85149;
+      --red-dim: #3d1418;
+      --orange: #d29922;
+      --orange-dim: #3d2e00;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── App Layout ── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      height: 100dvh;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      min-height: 48px;
+      padding: 0 12px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .connection-dot.connected { background: var(--green); }
+    .connection-dot.connecting { background: var(--orange); animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .model-select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 13px;
+      font-family: var(--font);
+      cursor: pointer;
+      outline: none;
+      min-width: 0;
+      max-width: 200px;
+    }
+    .model-select:focus { border-color: var(--border-focus); }
+
+    .settings-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s, background 0.2s;
+      flex-shrink: 0;
+    }
+    .settings-btn:hover { color: var(--text); background: var(--bg); }
+
+    /* ── Chat Area ── */
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Message Bubbles ── */
+    .msg {
+      max-width: 88%;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--bg-bubble-user);
+      color: var(--text-on-blue);
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.assistant {
+      align-self: flex-start;
+      background: var(--bg-bubble-assistant);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+    .msg.assistant p { margin-bottom: 8px; }
+    .msg.assistant p:last-child { margin-bottom: 0; }
+
+    .msg.tool-call {
+      align-self: flex-start;
+      background: transparent;
+      border: 1.5px dashed var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.4;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      max-width: 92%;
+    }
+    .msg.tool-call .tool-name {
+      color: var(--orange);
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .msg.tool-call pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 0;
+      color: var(--text-muted);
+    }
+
+    .msg.tool-result {
+      align-self: flex-start;
+      background: var(--green-dim);
+      border-left: 3px solid var(--green);
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      max-width: 92%;
+      font-family: var(--font-mono);
+      line-height: 1.4;
+    }
+    .msg.tool-result .result-label {
+      color: var(--green);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .msg.tool-result pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 0;
+    }
+
+    .msg.system {
+      align-self: center;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 4px 12px;
+      max-width: 100%;
+    }
+
+    .msg.error {
+      align-self: flex-start;
+      background: var(--red-dim);
+      border-left: 3px solid var(--red);
+      color: var(--red);
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+
+    /* ── Typing Indicator ── */
+    .typing-indicator {
+      align-self: flex-start;
+      display: flex;
+      gap: 4px;
+      padding: 12px 16px;
+      background: var(--bg-bubble-assistant);
+      border-radius: var(--radius);
+      border-bottom-left-radius: 4px;
+    }
+    .typing-indicator .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: typingBounce 1.4s infinite ease-in-out;
+    }
+    .typing-indicator .dot:nth-child(1) { animation-delay: 0s; }
+    .typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* ── Input Area ── */
+    .input-area {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      padding: 10px 12px;
+      padding-bottom: calc(10px + var(--safe-bottom));
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      z-index: 10;
+    }
+
+    .input-area textarea {
+      flex: 1;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 15px;
+      font-family: var(--font);
+      line-height: 1.4;
+      resize: none;
+      outline: none;
+      max-height: 120px;
+      min-height: 42px;
+      transition: border-color 0.2s;
+    }
+    .input-area textarea:focus { border-color: var(--border-focus); }
+    .input-area textarea::placeholder { color: var(--text-muted); }
+    .input-area textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .send-btn {
+      width: 42px;
+      height: 42px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--bg-bubble-user);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .send-btn:hover { opacity: 0.9; }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+    /* ── Settings Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .modal .field {
+      margin-bottom: 16px;
+    }
+
+    .modal label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .modal input {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .modal input:focus { border-color: var(--border-focus); }
+    .modal input::placeholder { color: #484f58; }
+
+    .modal .btn-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .modal button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .modal button:hover { background: var(--bg-surface); }
+    .modal button.primary {
+      background: var(--bg-bubble-user);
+      color: white;
+      border-color: var(--bg-bubble-user);
+    }
+    .modal button.primary:hover { opacity: 0.9; }
+
+    /* ── Scrollbar ── */
+    .chat-area::-webkit-scrollbar { width: 6px; }
+    .chat-area::-webkit-scrollbar-track { background: transparent; }
+    .chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Markdown-lite rendering inside assistant ── */
+    .msg.assistant strong { font-weight: 600; }
+    .msg.assistant em { font-style: italic; }
+    .msg.assistant code {
+      background: rgba(255,255,255,0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+    .msg.assistant ul, .msg.assistant ol {
+      margin: 4px 0 8px 20px;
+    }
+    .msg.assistant li {
+      margin-bottom: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="connection-dot" id="connectionDot" title="Niet verbonden"></div>
+        <select class="model-select" id="modelSelect">
+          <option value="claude">Claude Sonnet</option>
+          <option value="openai">GPT-4o</option>
+          <option value="gemini">Gemini Flash</option>
+        </select>
+      </div>
+      <button class="settings-btn" id="settingsBtn" title="API Keys">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="chat-area" id="chatArea">
+      <div class="msg system">WebMCP Chat Client -- verbinding wordt gemaakt...</div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <textarea id="userInput" rows="1" placeholder="Stel een vraag over hypotheken..." disabled></textarea>
+      <button class="send-btn" id="sendBtn" disabled title="Verstuur">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h2>API Keys</h2>
+      <div class="field">
+        <label for="keysClaude">Anthropic (Claude)</label>
+        <input type="password" id="keysClaude" placeholder="sk-ant-..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="keysOpenai">OpenAI (GPT-4o)</label>
+        <input type="password" id="keysOpenai" placeholder="sk-..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="keysGemini">Google (Gemini)</label>
+        <input type="password" id="keysGemini" placeholder="AIza..." autocomplete="off">
+      </div>
+      <div class="btn-row">
+        <button id="modalCancel">Annuleren</button>
+        <button class="primary" id="modalSave">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // ════════════════════════════════════════════════════════════
+    // CONSTANTS
+    // ════════════════════════════════════════════════════════════
+
+    var SYSTEM_PROMPT = 'Je bent een hypotheekadviseur van Centraal Beheer. Je helpt klanten met vragen over hypotheken.\n\nJe hebt toegang tot tools op de Centraal Beheer website. Gebruik deze tools om berekeningen te maken en advies te geven. Gebruik ALTIJD de tools wanneer een klant vraagt naar maandlasten, hypotheekkosten, of advies \u2014 geef nooit zelf een schatting zonder de tool te gebruiken.\n\nBeschikbare tools:\n- bereken_maandlasten: Bereken exacte maandlasten voor een hypotheek\n- get_hypotheek_advies: Geef gepersonaliseerd hypotheekadvies\n\nAntwoord altijd in het Nederlands. Wees vriendelijk, helder en professioneel. Geef na een berekening een korte samenvatting van de belangrijkste cijfers.';
+
+    // ════════════════════════════════════════════════════════════
+    // DOM REFERENCES
+    // ════════════════════════════════════════════════════════════
+
+    var chatArea = document.getElementById('chatArea');
+    var userInput = document.getElementById('userInput');
+    var sendBtn = document.getElementById('sendBtn');
+    var modelSelect = document.getElementById('modelSelect');
+    var connectionDot = document.getElementById('connectionDot');
+    var settingsBtn = document.getElementById('settingsBtn');
+    var settingsModal = document.getElementById('settingsModal');
+    var modalCancel = document.getElementById('modalCancel');
+    var modalSave = document.getElementById('modalSave');
+    var keysClaude = document.getElementById('keysClaude');
+    var keysOpenai = document.getElementById('keysOpenai');
+    var keysGemini = document.getElementById('keysGemini');
+
+    // ════════════════════════════════════════════════════════════
+    // STATE
+    // ════════════════════════════════════════════════════════════
+
+    var ws = null;
+    var reconnectTimeout = null;
+    var tools = [];           // Tool definitions from the page
+    var messages = [];        // Conversation history (Claude format as canonical)
+    var isProcessing = false;
+    var pageConnected = false;
+    var wsConnected = false;
+
+    // Map of callId -> { resolve, reject } for pending tool results
+    var pendingToolResults = new Map();
+
+    // ════════════════════════════════════════════════════════════
+    // LOCAL STORAGE
+    // ════════════════════════════════════════════════════════════
+
+    function loadSettings() {
+      keysClaude.value = localStorage.getItem('apikey_claude') || '';
+      keysOpenai.value = localStorage.getItem('apikey_openai') || '';
+      keysGemini.value = localStorage.getItem('apikey_gemini') || '';
+      var saved = localStorage.getItem('selected_model');
+      if (saved && ['claude', 'openai', 'gemini'].indexOf(saved) !== -1) {
+        modelSelect.value = saved;
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem('apikey_claude', keysClaude.value.trim());
+      localStorage.setItem('apikey_openai', keysOpenai.value.trim());
+      localStorage.setItem('apikey_gemini', keysGemini.value.trim());
+    }
+
+    modelSelect.addEventListener('change', function() {
+      localStorage.setItem('selected_model', modelSelect.value);
+    });
+
+    // ════════════════════════════════════════════════════════════
+    // SETTINGS MODAL
+    // ════════════════════════════════════════════════════════════
+
+    settingsBtn.addEventListener('click', function() {
+      loadSettings();
+      settingsModal.classList.add('visible');
+    });
+
+    modalCancel.addEventListener('click', function() {
+      settingsModal.classList.remove('visible');
+    });
+
+    modalSave.addEventListener('click', function() {
+      saveSettings();
+      settingsModal.classList.remove('visible');
+    });
+
+    settingsModal.addEventListener('click', function(e) {
+      if (e.target === settingsModal) settingsModal.classList.remove('visible');
+    });
+
+    // ════════════════════════════════════════════════════════════
+    // CHAT UI HELPERS
+    // ════════════════════════════════════════════════════════════
+
+    function scrollToBottom() {
+      requestAnimationFrame(function() {
+        chatArea.scrollTop = chatArea.scrollHeight;
+      });
+    }
+
+    function addMessage(type, content) {
+      var div = document.createElement('div');
+      div.className = 'msg ' + type;
+
+      if (type === 'assistant') {
+        div.innerHTML = renderMarkdown(content);
+      } else if (type === 'tool-call') {
+        var nameEl = document.createElement('div');
+        nameEl.className = 'tool-name';
+        nameEl.textContent = content.name;
+        var preEl = document.createElement('pre');
+        preEl.textContent = JSON.stringify(content.arguments, null, 2);
+        div.appendChild(nameEl);
+        div.appendChild(preEl);
+      } else if (type === 'tool-result') {
+        var labelEl = document.createElement('div');
+        labelEl.className = 'result-label';
+        labelEl.textContent = 'Resultaat: ' + content.name;
+        var preEl2 = document.createElement('pre');
+        // Truncate very long results for display
+        var resultStr = JSON.stringify(content.result, null, 2);
+        if (resultStr.length > 1000) {
+          resultStr = resultStr.substring(0, 1000) + '\n... (ingekort)';
+        }
+        preEl2.textContent = resultStr;
+        div.appendChild(labelEl);
+        div.appendChild(preEl2);
+      } else {
+        div.textContent = content;
+      }
+
+      chatArea.appendChild(div);
+      scrollToBottom();
+      return div;
+    }
+
+    function showTypingIndicator() {
+      var div = document.createElement('div');
+      div.className = 'typing-indicator';
+      div.id = 'typingIndicator';
+      div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+      chatArea.appendChild(div);
+      scrollToBottom();
+    }
+
+    function hideTypingIndicator() {
+      var el = document.getElementById('typingIndicator');
+      if (el) el.remove();
+    }
+
+    /** Simple markdown-lite renderer: bold, italic, code, lists, paragraphs */
+    function renderMarkdown(text) {
+      if (!text) return '';
+      // Escape HTML
+      var html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // Code blocks (triple backtick) — simplified
+      html = html.replace(/```[\s\S]*?```/g, function(match) {
+        var inner = match.slice(3, -3).replace(/^\w*\n/, '');
+        return '<pre><code>' + inner + '</code></pre>';
+      });
+
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Bold
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+      // Italic
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+      // Bullet lists (lines starting with - or *)
+      html = html.replace(/^([\-\*] .+(\n|$))+/gm, function(match) {
+        var items = match.trim().split('\n').map(function(line) {
+          return '<li>' + line.replace(/^[\-\*]\s+/, '') + '</li>';
+        }).join('');
+        return '<ul>' + items + '</ul>';
+      });
+
+      // Numbered lists
+      html = html.replace(/^(\d+\. .+(\n|$))+/gm, function(match) {
+        var items = match.trim().split('\n').map(function(line) {
+          return '<li>' + line.replace(/^\d+\.\s+/, '') + '</li>';
+        }).join('');
+        return '<ol>' + items + '</ol>';
+      });
+
+      // Paragraphs: double newlines
+      html = html.replace(/\n\n/g, '</p><p>');
+      // Single newlines inside paragraphs
+      html = html.replace(/\n/g, '<br>');
+
+      return '<p>' + html + '</p>';
+    }
+
+    function setInputEnabled(enabled) {
+      userInput.disabled = !enabled;
+      sendBtn.disabled = !enabled;
+      if (enabled) userInput.focus();
+    }
+
+    function updateConnectionStatus() {
+      if (!wsConnected) {
+        connectionDot.className = 'connection-dot';
+        connectionDot.title = 'Geen verbinding met server';
+      } else if (!pageConnected) {
+        connectionDot.className = 'connection-dot connecting';
+        connectionDot.title = 'Verbonden met server, wachten op website...';
+      } else {
+        connectionDot.className = 'connection-dot connected';
+        connectionDot.title = 'Verbonden met website';
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TEXTAREA AUTO-RESIZE
+    // ════════════════════════════════════════════════════════════
+
+    userInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // ════════════════════════════════════════════════════════════
+    // WEBSOCKET CONNECTION
+    // ════════════════════════════════════════════════════════════
+
+    function connectWebSocket() {
+      var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var url = protocol + '//' + location.host;
+
+      console.log('[Chat] Connecting to', url);
+      ws = new WebSocket(url);
+
+      ws.onopen = function() {
+        console.log('[Chat] Connected, registering as agent');
+        wsConnected = true;
+        updateConnectionStatus();
+        ws.send(JSON.stringify({ type: 'register', role: 'agent' }));
+      };
+
+      ws.onmessage = function(event) {
+        var msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch (e) {
+          console.warn('[Chat] Invalid message:', event.data);
+          return;
+        }
+
+        console.log('[Chat] Received:', msg.type, msg);
+
+        switch (msg.type) {
+          case 'peer_connected':
+            if (msg.role === 'page') {
+              pageConnected = true;
+              updateConnectionStatus();
+              addMessage('system', 'Website verbonden. Wachten op tools...');
+              if (!isProcessing) setInputEnabled(true);
+            }
+            break;
+
+          case 'peer_disconnected':
+            if (msg.role === 'page') {
+              pageConnected = false;
+              tools = [];
+              updateConnectionStatus();
+              addMessage('system', 'Website niet meer verbonden. Herlaad de hypotheek-calculator.');
+              setInputEnabled(false);
+            }
+            break;
+
+          case 'tools_available':
+            tools = msg.tools || [];
+            addMessage('system', 'Verbonden met hypotheek-calculator. ' + tools.length + ' tools beschikbaar.');
+            console.log('[Chat] Tools received:', tools.map(function(t) { return t.name; }));
+            if (!isProcessing) setInputEnabled(true);
+            break;
+
+          case 'tool_result':
+            var pending = pendingToolResults.get(msg.id);
+            if (pending) {
+              pending.resolve(msg.result);
+              pendingToolResults.delete(msg.id);
+            } else {
+              console.warn('[Chat] Received tool_result for unknown call:', msg.id);
+            }
+            break;
+
+          default:
+            console.log('[Chat] Unhandled message type:', msg.type);
+        }
+      };
+
+      ws.onclose = function() {
+        console.log('[Chat] Disconnected, reconnecting in 3s...');
+        wsConnected = false;
+        pageConnected = false;
+        ws = null;
+        updateConnectionStatus();
+
+        // Reject all pending tool results
+        pendingToolResults.forEach(function(pending) {
+          pending.reject(new Error('WebSocket disconnected'));
+        });
+        pendingToolResults.clear();
+
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        reconnectTimeout = setTimeout(connectWebSocket, 3000);
+      };
+
+      ws.onerror = function(err) {
+        console.error('[Chat] WebSocket error:', err);
+      };
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TOOL CALL VIA WEBSOCKET
+    // ════════════════════════════════════════════════════════════
+
+    function sendToolCall(id, name, args) {
+      return new Promise(function(resolve, reject) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          reject(new Error('WebSocket niet verbonden'));
+          return;
+        }
+
+        // Store the pending promise
+        pendingToolResults.set(id, { resolve: resolve, reject: reject });
+
+        // Send tool call to the page
+        ws.send(JSON.stringify({
+          type: 'tool_call',
+          id: id,
+          name: name,
+          arguments: args
+        }));
+
+        // Timeout after 30s
+        setTimeout(function() {
+          if (pendingToolResults.has(id)) {
+            pendingToolResults.delete(id);
+            reject(new Error('Tool call timeout na 30 seconden'));
+          }
+        }, 30000);
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // AI API ADAPTERS
+    // ════════════════════════════════════════════════════════════
+
+    function getApiKey(provider) {
+      var keyMap = { claude: 'apikey_claude', openai: 'apikey_openai', gemini: 'apikey_gemini' };
+      return (localStorage.getItem(keyMap[provider]) || '').trim();
+    }
+
+    // ── Claude adapter ──
+
+    function claudeConvertTools(toolDefs) {
+      return toolDefs.map(function(t) {
+        return {
+          name: t.name,
+          description: t.description,
+          input_schema: t.inputSchema
+        };
+      });
+    }
+
+    async function callClaude(msgs, toolDefs) {
+      var key = getApiKey('claude');
+      var resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: SYSTEM_PROMPT,
+          messages: msgs,
+          tools: claudeConvertTools(toolDefs)
+        })
+      });
+
+      if (!resp.ok) {
+        var errBody = await resp.text();
+        throw new Error('Claude API fout (' + resp.status + '): ' + errBody);
+      }
+
+      var data = await resp.json();
+      var textParts = [];
+      var toolCalls = [];
+
+      (data.content || []).forEach(function(block) {
+        if (block.type === 'text') {
+          textParts.push(block.text);
+        } else if (block.type === 'tool_use') {
+          toolCalls.push({
+            id: block.id,
+            name: block.name,
+            arguments: block.input
+          });
+        }
+      });
+
+      return {
+        text: textParts.join('\n'),
+        toolCalls: toolCalls,
+        needsToolResults: data.stop_reason === 'tool_use',
+        rawContent: data.content
+      };
+    }
+
+    function claudeAddToolResults(msgs, rawContent, toolResults) {
+      // Add the assistant message with the full content (text + tool_use blocks)
+      msgs.push({ role: 'assistant', content: rawContent });
+
+      // Add tool results as a user message
+      var resultContent = toolResults.map(function(tr) {
+        return {
+          type: 'tool_result',
+          tool_use_id: tr.id,
+          content: JSON.stringify(tr.result)
+        };
+      });
+      msgs.push({ role: 'user', content: resultContent });
+    }
+
+    // ── OpenAI adapter ──
+
+    function openaiConvertTools(toolDefs) {
+      return toolDefs.map(function(t) {
+        return {
+          type: 'function',
+          function: {
+            name: t.name,
+            description: t.description,
+            parameters: t.inputSchema
+          }
+        };
+      });
+    }
+
+    function openaiConvertMessages(msgs) {
+      var out = [{ role: 'system', content: SYSTEM_PROMPT }];
+
+      msgs.forEach(function(m) {
+        if (m.role === 'user') {
+          if (typeof m.content === 'string') {
+            out.push({ role: 'user', content: m.content });
+          } else if (Array.isArray(m.content)) {
+            // Could be tool_result entries (Claude format) — convert
+            m.content.forEach(function(block) {
+              if (block.type === 'tool_result') {
+                out.push({
+                  role: 'tool',
+                  tool_call_id: block.tool_use_id,
+                  content: block.content
+                });
+              } else if (block.type === 'text') {
+                out.push({ role: 'user', content: block.text });
+              }
+            });
+          }
+        } else if (m.role === 'assistant') {
+          if (typeof m.content === 'string') {
+            out.push({ role: 'assistant', content: m.content });
+          } else if (Array.isArray(m.content)) {
+            // Convert Claude assistant content to OpenAI format
+            var textParts = [];
+            var oaiToolCalls = [];
+            m.content.forEach(function(block) {
+              if (block.type === 'text' && block.text) {
+                textParts.push(block.text);
+              } else if (block.type === 'tool_use') {
+                oaiToolCalls.push({
+                  id: block.id,
+                  type: 'function',
+                  function: {
+                    name: block.name,
+                    arguments: JSON.stringify(block.input)
+                  }
+                });
+              }
+            });
+            var assistantMsg = {
+              role: 'assistant',
+              content: textParts.join('\n') || null
+            };
+            if (oaiToolCalls.length > 0) {
+              assistantMsg.tool_calls = oaiToolCalls;
+            }
+            out.push(assistantMsg);
+          }
+        }
+      });
+
+      return out;
+    }
+
+    async function callOpenAI(msgs, toolDefs) {
+      var key = getApiKey('openai');
+      var convertedMessages = openaiConvertMessages(msgs);
+      var body = {
+        model: 'gpt-4o',
+        messages: convertedMessages
+      };
+      if (toolDefs.length > 0) {
+        body.tools = openaiConvertTools(toolDefs);
+      }
+
+      var resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!resp.ok) {
+        var errBody = await resp.text();
+        throw new Error('OpenAI API fout (' + resp.status + '): ' + errBody);
+      }
+
+      var data = await resp.json();
+      var choice = data.choices[0];
+      var message = choice.message;
+
+      var textContent = message.content || '';
+      var toolCalls = [];
+
+      if (message.tool_calls && message.tool_calls.length > 0) {
+        message.tool_calls.forEach(function(tc) {
+          var parsedArgs;
+          try {
+            parsedArgs = JSON.parse(tc.function.arguments);
+          } catch (e) {
+            parsedArgs = {};
+          }
+          toolCalls.push({
+            id: tc.id,
+            name: tc.function.name,
+            arguments: parsedArgs
+          });
+        });
+      }
+
+      // Build rawContent in Claude format for consistent storage
+      var rawContent = [];
+      if (textContent) {
+        rawContent.push({ type: 'text', text: textContent });
+      }
+      if (message.tool_calls) {
+        message.tool_calls.forEach(function(tc) {
+          var parsedArgs;
+          try {
+            parsedArgs = JSON.parse(tc.function.arguments);
+          } catch (e) {
+            parsedArgs = {};
+          }
+          rawContent.push({
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.function.name,
+            input: parsedArgs
+          });
+        });
+      }
+
+      return {
+        text: textContent,
+        toolCalls: toolCalls,
+        needsToolResults: choice.finish_reason === 'tool_calls',
+        rawContent: rawContent.length > 0 ? rawContent : textContent
+      };
+    }
+
+    // ── Gemini adapter ──
+
+    function geminiCleanSchema(schema) {
+      if (!schema || typeof schema !== 'object') return schema;
+      var cleaned = {};
+      for (var key in schema) {
+        if (!schema.hasOwnProperty(key)) continue;
+        // Remove minimum/maximum on number types; keep enum on strings only
+        if (key === 'minimum' || key === 'maximum') continue;
+        if (key === 'enum' && schema.type === 'number') continue;
+        if (key === 'properties') {
+          cleaned.properties = {};
+          for (var prop in schema.properties) {
+            if (schema.properties.hasOwnProperty(prop)) {
+              cleaned.properties[prop] = geminiCleanSchema(schema.properties[prop]);
+            }
+          }
+        } else if (key === 'items') {
+          cleaned.items = geminiCleanSchema(schema[key]);
+        } else {
+          cleaned[key] = schema[key];
+        }
+      }
+      return cleaned;
+    }
+
+    function geminiConvertTools(toolDefs) {
+      return [{
+        functionDeclarations: toolDefs.map(function(t) {
+          return {
+            name: t.name,
+            description: t.description,
+            parameters: geminiCleanSchema(t.inputSchema)
+          };
+        })
+      }];
+    }
+
+    function geminiConvertMessages(msgs) {
+      var out = [];
+
+      msgs.forEach(function(m) {
+        if (m.role === 'user') {
+          if (typeof m.content === 'string') {
+            out.push({ role: 'user', parts: [{ text: m.content }] });
+          } else if (Array.isArray(m.content)) {
+            var parts = [];
+            m.content.forEach(function(block) {
+              if (block.type === 'tool_result') {
+                parts.push({
+                  functionResponse: {
+                    name: block._toolName || 'unknown',
+                    response: { result: JSON.parse(block.content) }
+                  }
+                });
+              } else if (block.type === 'text') {
+                parts.push({ text: block.text });
+              }
+            });
+            if (parts.length > 0) {
+              out.push({ role: 'user', parts: parts });
+            }
+          }
+        } else if (m.role === 'assistant') {
+          if (typeof m.content === 'string') {
+            out.push({ role: 'model', parts: [{ text: m.content }] });
+          } else if (Array.isArray(m.content)) {
+            var parts2 = [];
+            m.content.forEach(function(block) {
+              if (block.type === 'text' && block.text) {
+                parts2.push({ text: block.text });
+              } else if (block.type === 'tool_use') {
+                parts2.push({
+                  functionCall: {
+                    name: block.name,
+                    args: block.input
+                  }
+                });
+              }
+            });
+            if (parts2.length > 0) {
+              out.push({ role: 'model', parts: parts2 });
+            }
+          }
+        }
+      });
+
+      return out;
+    }
+
+    async function callGemini(msgs, toolDefs) {
+      var key = getApiKey('gemini');
+      var body = {
+        contents: geminiConvertMessages(msgs),
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }
+      };
+      if (toolDefs.length > 0) {
+        body.tools = geminiConvertTools(toolDefs);
+      }
+
+      var resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(key), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!resp.ok) {
+        var errBody = await resp.text();
+        throw new Error('Gemini API fout (' + resp.status + '): ' + errBody);
+      }
+
+      var data = await resp.json();
+      var candidate = data.candidates && data.candidates[0];
+      if (!candidate || !candidate.content || !candidate.content.parts) {
+        throw new Error('Gemini: ongeldig antwoord ontvangen');
+      }
+
+      var textParts = [];
+      var toolCalls = [];
+      var hasFunctionCall = false;
+
+      candidate.content.parts.forEach(function(part) {
+        if (part.text) {
+          textParts.push(part.text);
+        } else if (part.functionCall) {
+          hasFunctionCall = true;
+          // Generate a unique ID for Gemini tool calls (Gemini doesn't provide one)
+          var callId = 'gemini_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+          toolCalls.push({
+            id: callId,
+            name: part.functionCall.name,
+            arguments: part.functionCall.args || {}
+          });
+        }
+      });
+
+      // Build rawContent in Claude format
+      var rawContent = [];
+      if (textParts.join('')) {
+        rawContent.push({ type: 'text', text: textParts.join('\n') });
+      }
+      toolCalls.forEach(function(tc) {
+        rawContent.push({
+          type: 'tool_use',
+          id: tc.id,
+          name: tc.name,
+          input: tc.arguments
+        });
+      });
+
+      return {
+        text: textParts.join('\n'),
+        toolCalls: toolCalls,
+        needsToolResults: hasFunctionCall,
+        rawContent: rawContent.length > 0 ? rawContent : (textParts.join('\n') || '')
+      };
+    }
+
+    // ── Unified call ──
+
+    async function callAI(provider, msgs, toolDefs) {
+      switch (provider) {
+        case 'claude':  return callClaude(msgs, toolDefs);
+        case 'openai':  return callOpenAI(msgs, toolDefs);
+        case 'gemini':  return callGemini(msgs, toolDefs);
+        default: throw new Error('Onbekende provider: ' + provider);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // MAIN SEND / CONVERSATION LOOP
+    // ════════════════════════════════════════════════════════════
+
+    async function handleSend() {
+      var text = userInput.value.trim();
+      if (!text) return;
+
+      var provider = modelSelect.value;
+      var key = getApiKey(provider);
+      if (!key) {
+        addMessage('error', 'Geen API key ingesteld voor ' + modelSelect.options[modelSelect.selectedIndex].text + '. Klik op het tandwiel-icoon om je key in te voeren.');
+        return;
+      }
+
+      if (tools.length === 0) {
+        addMessage('error', 'Geen tools beschikbaar. Zorg dat de hypotheek-calculator website geopend is.');
+        return;
+      }
+
+      // Add user message
+      addMessage('user', text);
+      messages.push({ role: 'user', content: text });
+
+      // Clear input
+      userInput.value = '';
+      userInput.style.height = 'auto';
+
+      isProcessing = true;
+      setInputEnabled(false);
+      showTypingIndicator();
+
+      try {
+        await conversationLoop(provider);
+      } catch (err) {
+        console.error('[Chat] Error in conversation loop:', err);
+        hideTypingIndicator();
+        addMessage('error', 'Fout: ' + err.message);
+      } finally {
+        isProcessing = false;
+        hideTypingIndicator();
+        if (pageConnected) setInputEnabled(true);
+      }
+    }
+
+    async function conversationLoop(provider) {
+      var maxIterations = 10; // Safety limit to prevent infinite loops
+      var iteration = 0;
+
+      while (iteration < maxIterations) {
+        iteration++;
+
+        var response = await callAI(provider, messages, tools);
+
+        // If there are tool calls, process them
+        if (response.toolCalls && response.toolCalls.length > 0) {
+          // If there's also text before the tool calls, show it
+          if (response.text) {
+            hideTypingIndicator();
+            addMessage('assistant', response.text);
+            showTypingIndicator();
+          }
+
+          // Process each tool call
+          var toolResults = [];
+          for (var i = 0; i < response.toolCalls.length; i++) {
+            var tc = response.toolCalls[i];
+
+            // Show tool call bubble
+            hideTypingIndicator();
+            addMessage('tool-call', { name: tc.name, arguments: tc.arguments });
+            showTypingIndicator();
+
+            // Send to the website and wait for result
+            try {
+              var result = await sendToolCall(tc.id, tc.name, tc.arguments);
+              hideTypingIndicator();
+              addMessage('tool-result', { name: tc.name, result: result });
+              showTypingIndicator();
+              toolResults.push({ id: tc.id, name: tc.name, result: result });
+            } catch (toolErr) {
+              hideTypingIndicator();
+              addMessage('error', 'Tool fout (' + tc.name + '): ' + toolErr.message);
+              showTypingIndicator();
+              toolResults.push({ id: tc.id, name: tc.name, result: { error: toolErr.message } });
+            }
+          }
+
+          // Add assistant message (with tool calls) and tool results to messages
+          // Store in Claude-canonical format
+          claudeAddToolResults(messages, response.rawContent, toolResults);
+
+          // Annotate tool results with tool names for Gemini conversion
+          var lastMsg = messages[messages.length - 1];
+          if (Array.isArray(lastMsg.content)) {
+            for (var j = 0; j < lastMsg.content.length; j++) {
+              if (lastMsg.content[j].type === 'tool_result') {
+                // Find matching tool result to get the name
+                for (var k = 0; k < toolResults.length; k++) {
+                  if (toolResults[k].id === lastMsg.content[j].tool_use_id) {
+                    lastMsg.content[j]._toolName = toolResults[k].name;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          if (response.needsToolResults) {
+            // Continue the loop — the AI needs to process the tool results
+            continue;
+          }
+        }
+
+        // If there's a final text response (no more tool calls), show it and stop
+        if (response.text && !(response.toolCalls && response.toolCalls.length > 0)) {
+          hideTypingIndicator();
+          addMessage('assistant', response.text);
+          // Store in messages
+          messages.push({ role: 'assistant', content: response.text });
+        } else if (!response.toolCalls || response.toolCalls.length === 0) {
+          // No text and no tool calls — edge case
+          if (!response.text) {
+            hideTypingIndicator();
+            addMessage('assistant', '(Geen antwoord ontvangen)');
+          }
+        }
+
+        // If we just had tool calls but needsToolResults was false, we still
+        // need the text that came with them (already shown above). Just break.
+        break;
+      }
+
+      if (iteration >= maxIterations) {
+        addMessage('error', 'Maximaal aantal tool-rondes bereikt. Het gesprek is gestopt.');
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // EVENT LISTENERS
+    // ════════════════════════════════════════════════════════════
+
+    sendBtn.addEventListener('click', handleSend);
+
+    userInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!sendBtn.disabled) handleSend();
+      }
+    });
+
+    // ════════════════════════════════════════════════════════════
+    // INITIALIZE
+    // ════════════════════════════════════════════════════════════
+
+    loadSettings();
+    updateConnectionStatus();
+    connectWebSocket();
+
+  })();
+  </script>
+</body>
+</html>
