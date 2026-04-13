@@ -1,0 +1,13 @@
+{
+  "name": "webmcp-demo",
+  "version": "1.0.0",
+  "description": "WebMCP hypotheek demo — AI agent discovers and operates mortgage tools on a Centraal Beheer website",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

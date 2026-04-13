@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hypotheek berekenen - Centraal Beheer</title>
+
+  <!-- Schema.org structured data for agent discoverability -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FinancialProduct",
+    "name": "Centraal Beheer Hypotheek",
+    "provider": {
+      "@type": "Organization",
+      "name": "Centraal Beheer",
+      "url": "https://www.centraalbeheer.nl"
+    },
+    "description": "Bereken je maandlasten voor een hypotheek bij Centraal Beheer. Annuitair of lineair, met hypotheekrenteaftrek.",
+    "category": "Hypotheek",
+    "areaServed": "NL",
+    "availableChannel": {
+      "@type": "ServiceChannel",
+      "serviceType": "Hypotheekberekening",
+      "serviceUrl": "https://www.centraalbeheer.nl/hypotheek/berekenen/maandlasten"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      --cb-blue: #0050f0;
+      --cb-blue-dark: #003bb3;
+      --cb-blue-light: #e8f0fe;
+      --cb-orange: #ff6600;
+      --cb-green: #00a854;
+      --cb-gray-100: #f5f5f5;
+      --cb-gray-200: #e8e8e8;
+      --cb-gray-300: #cccccc;
+      --cb-gray-600: #666666;
+      --cb-gray-800: #333333;
+      --cb-white: #ffffff;
+      --cb-font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --cb-radius: 8px;
+      --cb-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      --cb-shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--cb-font);
+      color: var(--cb-gray-800);
+      background: var(--cb-gray-100);
+      line-height: 1.6;
+    }
+
+    /* ── Header ── */
+    .cb-header {
+      background: var(--cb-white);
+      border-bottom: 1px solid var(--cb-gray-200);
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .cb-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--cb-blue);
+      text-decoration: none;
+    }
+
+    .cb-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--cb-blue);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 900;
+      font-size: 18px;
+    }
+
+    .cb-nav {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .cb-nav a {
+      color: var(--cb-gray-800);
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 8px 0;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .cb-nav a:hover, .cb-nav a.active {
+      color: var(--cb-blue);
+      border-bottom-color: var(--cb-blue);
+    }
+
+    .cb-nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .cb-btn-login {
+      background: none;
+      border: 2px solid var(--cb-blue);
+      color: var(--cb-blue);
+      padding: 8px 20px;
+      border-radius: 24px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .cb-btn-login:hover {
+      background: var(--cb-blue);
+      color: white;
+    }
+
+    /* ── Hero ── */
+    .cb-hero {
+      background: linear-gradient(135deg, var(--cb-blue) 0%, var(--cb-blue-dark) 100%);
+      color: white;
+      padding: 48px 24px 56px;
+      text-align: center;
+    }
+
+    .cb-hero h1 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .cb-hero p {
+      font-size: 18px;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .cb-breadcrumb {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      font-size: 13px;
+      color: var(--cb-gray-600);
+    }
+
+    .cb-breadcrumb a {
+      color: var(--cb-blue);
+      text-decoration: none;
+    }
+
+    .cb-breadcrumb span { margin: 0 8px; }
+
+    /* ── Main Layout ── */
+    .cb-main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px 64px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+    }
+
+    /* ── Calculator Card ── */
+    .cb-card {
+      background: var(--cb-white);
+      border-radius: var(--cb-radius);
+      box-shadow: var(--cb-shadow);
+      padding: 32px;
+    }
+
+    .cb-card h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--cb-gray-800);
+    }
+
+    .cb-card .subtitle {
+      font-size: 14px;
+      color: var(--cb-gray-600);
+      margin-bottom: 28px;
+    }
+
+    /* ── Form Elements ── */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--cb-gray-800);
+    }
+
+    .form-group .helper {
+      font-size: 12px;
+      color: var(--cb-gray-600);
+      margin-bottom: 6px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--cb-gray-200);
+      border-radius: var(--cb-radius);
+      font-size: 16px;
+      font-family: var(--cb-font);
+      color: var(--cb-gray-800);
+      transition: border-color 0.2s;
+      -moz-appearance: textfield;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--cb-blue);
+      box-shadow: 0 0 0 3px rgba(0, 80, 240, 0.1);
+    }
+
+    .input-prefix {
+      position: relative;
+    }
+
+    .input-prefix::before {
+      content: attr(data-prefix);
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--cb-gray-600);
+      font-size: 16px;
+      pointer-events: none;
+    }
+
+    .input-prefix input {
+      padding-left: 32px;
+    }
+
+    .cb-divider {
+      border: none;
+      border-top: 1px solid var(--cb-gray-200);
+      margin: 24px 0;
+    }
+
+    .cb-section-label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--cb-blue);
+      margin-bottom: 16px;
+    }
+
+    /* Toggle (partner) */
+    .toggle-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .toggle-option {
+      flex: 1;
+      padding: 10px 16px;
+      border: 2px solid var(--cb-gray-200);
+      border-radius: var(--cb-radius);
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--cb-white);
+    }
+
+    .toggle-option.active {
+      border-color: var(--cb-blue);
+      background: var(--cb-blue-light);
+      color: var(--cb-blue);
+    }
+
+    .toggle-option:hover:not(.active) {
+      border-color: var(--cb-gray-300);
+    }
+
+    .partner-fields {
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    .partner-fields.visible { display: block; }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Submit Button ── */
+    .cb-btn-primary {
+      width: 100%;
+      padding: 16px 32px;
+      background: var(--cb-orange);
+      color: white;
+      border: none;
+      border-radius: 28px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+
+    .cb-btn-primary:hover {
+      background: #e55c00;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3);
+    }
+
+    /* ── Results Card ── */
+    .cb-results {
+      display: none;
+      animation: slideDown 0.4s ease;
+    }
+
+    .cb-results.visible { display: block; }
+
+    .result-highlight {
+      background: linear-gradient(135deg, var(--cb-blue) 0%, var(--cb-blue-dark) 100%);
+      color: white;
+      border-radius: var(--cb-radius);
+      padding: 24px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .result-highlight .label {
+      font-size: 14px;
+      opacity: 0.85;
+      margin-bottom: 4px;
+    }
+
+    .result-highlight .amount {
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .result-highlight .per-month {
+      font-size: 16px;
+      opacity: 0.7;
+    }
+
+    .result-breakdown {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--cb-gray-200);
+    }
+
+    .result-row:last-child { border-bottom: none; }
+
+    .result-row .label {
+      font-size: 14px;
+      color: var(--cb-gray-600);
+    }
+
+    .result-row .value {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .result-row .value.green { color: var(--cb-green); }
+
+    .cb-btn-secondary {
+      width: 100%;
+      padding: 14px 32px;
+      background: var(--cb-white);
+      color: var(--cb-blue);
+      border: 2px solid var(--cb-blue);
+      border-radius: 28px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 12px;
+    }
+
+    .cb-btn-secondary:hover {
+      background: var(--cb-blue-light);
+    }
+
+    /* ── Sidebar ── */
+    .cb-sidebar .cb-card {
+      margin-bottom: 20px;
+    }
+
+    .cb-sidebar h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .cb-sidebar p {
+      font-size: 14px;
+      color: var(--cb-gray-600);
+      margin-bottom: 12px;
+    }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--cb-blue);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .sidebar-link:hover { text-decoration: underline; }
+
+    .cb-phone-banner {
+      background: var(--cb-blue-light);
+      border-radius: var(--cb-radius);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .cb-phone-banner .phone {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--cb-blue);
+      margin: 8px 0 4px;
+    }
+
+    .cb-phone-banner .hours {
+      font-size: 12px;
+      color: var(--cb-gray-600);
+    }
+
+    /* ── WebMCP Badge (for demo visibility) ── */
+    .webmcp-badge {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--cb-gray-800);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: monospace;
+      z-index: 200;
+      box-shadow: var(--cb-shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .webmcp-badge:hover {
+      transform: translateY(-2px);
+    }
+
+    .webmcp-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cb-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .webmcp-panel {
+      position: fixed;
+      bottom: 60px;
+      right: 20px;
+      background: var(--cb-gray-800);
+      color: #e0e0e0;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: monospace;
+      z-index: 200;
+      box-shadow: var(--cb-shadow-lg);
+      width: 400px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .webmcp-panel.visible { display: block; }
+
+    .webmcp-panel .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #444;
+    }
+
+    .webmcp-panel .log-entry .timestamp { color: #888; }
+    .webmcp-panel .log-entry .tool-name { color: #58d68d; font-weight: bold; }
+    .webmcp-panel .log-entry .action { color: #5dade2; }
+
+    /* ── Footer ── */
+    .cb-footer {
+      background: var(--cb-gray-800);
+      color: var(--cb-gray-300);
+      padding: 40px 24px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .cb-footer a {
+      color: var(--cb-gray-300);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ HEADER ═══ -->
+  <header class="cb-header">
+    <a href="#" class="cb-logo">
+      <div class="cb-logo-icon">CB</div>
+      Centraal Beheer
+    </a>
+    <nav>
+      <ul class="cb-nav">
+        <li><a href="#">Verzekeren</a></li>
+        <li><a href="#">Beleggen</a></li>
+        <li><a href="#">Sparen</a></li>
+        <li><a href="#">Pensioen</a></li>
+        <li><a href="#" class="active">Hypotheek</a></li>
+      </ul>
+    </nav>
+    <div class="cb-nav-right">
+      <button class="cb-btn-login">Mijn CB</button>
+    </div>
+  </header>
+
+  <!-- ═══ HERO ═══ -->
+  <section class="cb-hero">
+    <h1>Bereken je maandlasten</h1>
+    <p>Bereken in een paar stappen wat jouw hypotheek maandelijks kost. Snel, helder en zonder verplichtingen.</p>
+  </section>
+
+  <!-- ═══ BREADCRUMB ═══ -->
+  <div class="cb-breadcrumb">
+    <a href="#">Home</a> <span>&rsaquo;</span>
+    <a href="#">Hypotheek</a> <span>&rsaquo;</span>
+    <a href="#">Berekenen</a> <span>&rsaquo;</span>
+    Maandlasten
+  </div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <main class="cb-main">
+
+    <!-- ── Calculator Form ── -->
+    <div>
+      <div class="cb-card">
+        <h2>Maandlasten berekenen</h2>
+        <p class="subtitle">Vul de gegevens in en ontdek direct wat je maandelijks betaalt.</p>
+
+        <!--
+          ╔══════════════════════════════════════════════════════════════╗
+          ║  WebMCP DECLARATIVE API                                     ║
+          ║  The toolname + tooldescription attributes make this form   ║
+          ║  discoverable and usable by AI agents via the WebMCP        ║
+          ║  protocol. Agents can fill and submit this form without     ║
+          ║  needing to parse the DOM visually.                         ║
+          ╚══════════════════════════════════════════════════════════════╝
+        -->
+        <form
+          id="hypotheekForm"
+          toolname="bereken_maandlasten"
+          tooldescription="Bereken de maandelijkse hypotheeklasten. Vereist woningwaarde, hypotheekbedrag, rentevaste periode en hypotheekvorm. Optioneel: bruto jaarinkomen voor netto berekening. Retourneert bruto maandlasten, netto maandlasten, rente per maand, aflossing per maand en hypotheekrenteaftrek."
+          method="POST"
+        >
+
+          <!-- Woning & Hypotheek -->
+          <div class="cb-section-label">Woning &amp; hypotheek</div>
+
+          <div class="form-group">
+            <label for="woningwaarde">Woningwaarde</label>
+            <div class="helper">De geschatte waarde van de woning (WOZ-waarde of koopsom)</div>
+            <div class="input-prefix" data-prefix="&euro;">
+              <input
+                type="number"
+                id="woningwaarde"
+                name="woningwaarde"
+                placeholder="350000"
+                min="50000"
+                max="2000000"
+                step="5000"
+                required
+                aria-label="Woningwaarde in euro's"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="hypotheekbedrag">Hypotheekbedrag</label>
+            <div class="helper">Het bedrag dat je wilt lenen (maximaal 100% van de woningwaarde)</div>
+            <div class="input-prefix" data-prefix="&euro;">
+              <input
+                type="number"
+                id="hypotheekbedrag"
+                name="hypotheekbedrag"
+                placeholder="320000"
+                min="50000"
+                max="2000000"
+                step="5000"
+                required
+                aria-label="Hypotheekbedrag in euro's"
+              />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="rentevaste_periode">Rentevaste periode</label>
+              <select id="rentevaste_periode" name="rentevaste_periode" required aria-label="Rentevaste periode in jaren">
+                <option value="1">1 jaar</option>
+                <option value="5">5 jaar</option>
+                <option value="10" selected>10 jaar</option>
+                <option value="15">15 jaar</option>
+                <option value="20">20 jaar</option>
+                <option value="30">30 jaar</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="hypotheekvorm">Hypotheekvorm</label>
+              <select id="hypotheekvorm" name="hypotheekvorm" required aria-label="Type hypotheek">
+                <option value="annuitair" selected>Annu&iuml;tair</option>
+                <option value="lineair">Lineair</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="looptijd">Looptijd</label>
+            <select id="looptijd" name="looptijd" required aria-label="Looptijd van de hypotheek in jaren">
+              <option value="10">10 jaar</option>
+              <option value="15">15 jaar</option>
+              <option value="20">20 jaar</option>
+              <option value="25">25 jaar</option>
+              <option value="30" selected>30 jaar</option>
+            </select>
+          </div>
+
+          <hr class="cb-divider" />
+
+          <!-- Inkomen -->
+          <div class="cb-section-label">Inkomen (voor netto berekening)</div>
+
+          <div class="form-group">
+            <label for="bruto_jaarinkomen">Bruto jaarinkomen</label>
+            <div class="helper">Je bruto jaarinkomen bepaalt je belastingtarief voor de hypotheekrenteaftrek</div>
+            <div class="input-prefix" data-prefix="&euro;">
+              <input
+                type="number"
+                id="bruto_jaarinkomen"
+                name="bruto_jaarinkomen"
+                placeholder="55000"
+                min="0"
+                max="500000"
+                step="1000"
+                aria-label="Bruto jaarinkomen in euro's"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Heb je een partner?</label>
+            <div class="toggle-group">
+              <div class="toggle-option" data-value="nee" id="partnerNee" onclick="togglePartner(false)">Nee</div>
+              <div class="toggle-option active" data-value="nee" id="partnerNeeDefault">Nee</div>
+              <div class="toggle-option" data-value="ja" id="partnerJa" onclick="togglePartner(true)">Ja</div>
+            </div>
+            <input type="hidden" id="heeft_partner" name="heeft_partner" value="nee" />
+          </div>
+
+          <div class="partner-fields" id="partnerFields">
+            <div class="form-group">
+              <label for="partner_jaarinkomen">Bruto jaarinkomen partner</label>
+              <div class="input-prefix" data-prefix="&euro;">
+                <input
+                  type="number"
+                  id="partner_jaarinkomen"
+                  name="partner_jaarinkomen"
+                  placeholder="45000"
+                  min="0"
+                  max="500000"
+                  step="1000"
+                  aria-label="Bruto jaarinkomen partner in euro's"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="cb-btn-primary">Bereken maandlasten</button>
+        </form>
+
+        <!-- ── Results ── -->
+        <div class="cb-results" id="results">
+          <hr class="cb-divider" />
+          <div class="cb-section-label">Jouw berekening</div>
+
+          <div class="result-highlight">
+            <div class="label">Netto maandlasten</div>
+            <div class="amount" id="resultNetto">&euro; 0</div>
+            <div class="per-month">per maand</div>
+          </div>
+
+          <div class="result-breakdown">
+            <div class="result-row">
+              <span class="label">Bruto maandlasten</span>
+              <span class="value" id="resultBruto">&euro; 0</span>
+            </div>
+            <div class="result-row">
+              <span class="label">Rente per maand</span>
+              <span class="value" id="resultRente">&euro; 0</span>
+            </div>
+            <div class="result-row">
+              <span class="label">Aflossing per maand</span>
+              <span class="value" id="resultAflossing">&euro; 0</span>
+            </div>
+            <div class="result-row">
+              <span class="label">Hypotheekrenteaftrek</span>
+              <span class="value green" id="resultAftrek">- &euro; 0</span>
+            </div>
+            <div class="result-row">
+              <span class="label">Rente percentage (indicatief)</span>
+              <span class="value" id="resultRentePerc">0%</span>
+            </div>
+          </div>
+
+          <button type="button" class="cb-btn-secondary" onclick="resetForm()">Nieuwe berekening</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sidebar ── -->
+    <aside class="cb-sidebar">
+      <div class="cb-card">
+        <h3>Over deze berekening</h3>
+        <p>Deze berekening geeft een indicatie van je maandlasten. De werkelijke rente kan afwijken op basis van je persoonlijke situatie.</p>
+        <a href="#" class="sidebar-link">&rarr; Meer over hypotheekrentes</a>
+        <a href="#" class="sidebar-link">&rarr; Maximale hypotheek berekenen</a>
+        <a href="#" class="sidebar-link">&rarr; Annu&iuml;tair vs. lineair uitgelegd</a>
+      </div>
+
+      <div class="cb-card">
+        <h3>Leef Hypotheek</h3>
+        <p>Onze Leef Hypotheek past zich aan jouw leven aan. Met automatische renteverlaging als je genoeg hebt afgelost.</p>
+        <a href="#" class="sidebar-link">&rarr; Bekijk de Leef Hypotheek</a>
+      </div>
+
+      <div class="cb-card cb-phone-banner">
+        <div>Hulp nodig?</div>
+        <div class="phone">055 579 8130</div>
+        <div class="hours">Ma-vr 08:00 - 18:00 &bull; Za 09:00 - 13:00</div>
+        <div style="margin-top: 8px; font-size: 13px; color: var(--cb-gray-600);">
+          Even Apeldoorn bellen
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer class="cb-footer">
+    <p>&copy; 2026 Centraal Beheer &mdash; Onderdeel van Achmea &bull;
+      <a href="#">Privacy</a> &bull;
+      <a href="#">Voorwaarden</a> &bull;
+      <a href="#">Cookies</a> &bull;
+      <a href="#">Klachten</a>
+    </p>
+  </footer>
+
+  <!-- ═══ WebMCP Debug Panel (visible during demo) ═══ -->
+  <div class="webmcp-badge" onclick="togglePanel()">
+    <span class="dot"></span>
+    WebMCP Active &mdash; 2 tools registered
+  </div>
+  <div class="webmcp-panel" id="webmcpPanel">
+    <div style="font-weight: bold; color: #58d68d; margin-bottom: 8px;">Registered Tools:</div>
+    <div class="log-entry">
+      <span class="tool-name">bereken_maandlasten</span> (declarative/form)<br/>
+      <span class="action">Schema: woningwaarde, hypotheekbedrag, rentevaste_periode, hypotheekvorm, looptijd, bruto_jaarinkomen, heeft_partner, partner_jaarinkomen</span>
+    </div>
+    <div class="log-entry" style="margin-top: 8px;">
+      <span class="tool-name">get_hypotheek_advies</span> (imperative/js)<br/>
+      <span class="action">Schema: leeftijd, gezinssituatie, woonsituatie, doel</span>
+    </div>
+    <div style="margin-top: 12px; font-weight: bold; color: #5dade2;">Agent Activity Log:</div>
+    <div id="agentLog" style="margin-top: 4px;">
+      <div class="log-entry"><span class="timestamp">[waiting]</span> No agent activity yet</div>
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════════════════════════
+    // MORTGAGE CALCULATION LOGIC
+    // ══════════════════════════════════════════════════════════════
+
+    // Indicative interest rates by fixed-rate period (2026 Q1)
+    const INTEREST_RATES = {
+      1:  3.85,
+      5:  4.05,
+      10: 4.15,
+      15: 4.30,
+      20: 4.45,
+      30: 4.65
+    };
+
+    // Dutch income tax brackets 2026 (simplified)
+    function getTaxRate(income) {
+      if (income <= 38441) return 0.3693;
+      if (income <= 75518) return 0.3693;
+      return 0.4950;
+    }
+
+    function calculateMortgage(data) {
+      const principal = data.hypotheekbedrag;
+      const years = data.looptijd;
+      const months = years * 12;
+      const annualRate = INTEREST_RATES[data.rentevaste_periode] / 100;
+      const monthlyRate = annualRate / 12;
+
+      let monthlyPayment, monthlyInterest, monthlyRepayment;
+
+      if (data.hypotheekvorm === 'annuitair') {
+        // Annuity mortgage: fixed monthly payment
+        monthlyPayment = principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) /
+                         (Math.pow(1 + monthlyRate, months) - 1);
+        monthlyInterest = principal * monthlyRate;
+        monthlyRepayment = monthlyPayment - monthlyInterest;
+      } else {
+        // Linear mortgage: fixed repayment, decreasing interest (show first month)
+        monthlyRepayment = principal / months;
+        monthlyInterest = principal * monthlyRate;
+        monthlyPayment = monthlyRepayment + monthlyInterest;
+      }
+
+      // Calculate tax deduction (hypotheekrenteaftrek)
+      let taxDeduction = 0;
+      const income = data.bruto_jaarinkomen || 0;
+      const partnerIncome = data.partner_jaarinkomen || 0;
+      const totalIncome = income + partnerIncome;
+
+      if (totalIncome > 0) {
+        const taxRate = getTaxRate(totalIncome);
+        // Mortgage interest deduction is capped at 36.93% in 2026
+        const effectiveRate = Math.min(taxRate, 0.3693);
+        taxDeduction = monthlyInterest * effectiveRate;
+      }
+
+      const netMonthly = monthlyPayment - taxDeduction;
+
+      return {
+        bruto_maandlasten: Math.round(monthlyPayment * 100) / 100,
+        netto_maandlasten: Math.round(netMonthly * 100) / 100,
+        rente_per_maand: Math.round(monthlyInterest * 100) / 100,
+        aflossing_per_maand: Math.round(monthlyRepayment * 100) / 100,
+        hypotheekrenteaftrek: Math.round(taxDeduction * 100) / 100,
+        rente_percentage: INTEREST_RATES[data.rentevaste_periode],
+        hypotheekvorm: data.hypotheekvorm,
+        looptijd_jaren: years,
+        rentevaste_periode_jaren: data.rentevaste_periode
+      };
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // FORM HANDLING
+    // ══════════════════════════════════════════════════════════════
+
+    // Partner toggle
+    function togglePartner(hasPartner) {
+      document.getElementById('heeft_partner').value = hasPartner ? 'ja' : 'nee';
+      document.getElementById('partnerFields').classList.toggle('visible', hasPartner);
+
+      document.querySelectorAll('.toggle-group .toggle-option').forEach(el => el.classList.remove('active'));
+      if (hasPartner) {
+        document.getElementById('partnerJa').classList.add('active');
+      } else {
+        document.getElementById('partnerNeeDefault').classList.add('active');
+      }
+    }
+
+    // Initialize toggle
+    document.getElementById('partnerNeeDefault').classList.add('active');
+    document.getElementById('partnerNee').style.display = 'none';
+
+    // Form submission
+    document.getElementById('hypotheekForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const formData = {
+        woningwaarde: parseInt(document.getElementById('woningwaarde').value),
+        hypotheekbedrag: parseInt(document.getElementById('hypotheekbedrag').value),
+        rentevaste_periode: parseInt(document.getElementById('rentevaste_periode').value),
+        hypotheekvorm: document.getElementById('hypotheekvorm').value,
+        looptijd: parseInt(document.getElementById('looptijd').value),
+        bruto_jaarinkomen: parseInt(document.getElementById('bruto_jaarinkomen').value) || 0,
+        heeft_partner: document.getElementById('heeft_partner').value,
+        partner_jaarinkomen: parseInt(document.getElementById('partner_jaarinkomen').value) || 0
+      };
+
+      // Validation
+      if (formData.hypotheekbedrag > formData.woningwaarde) {
+        alert('Het hypotheekbedrag kan niet hoger zijn dan de woningwaarde.');
+        return;
+      }
+
+      const result = calculateMortgage(formData);
+      displayResults(result);
+      logAgentActivity('form_submit', 'User submitted bereken_maandlasten', formData);
+
+      // If this was an agent submission (WebMCP), respond with structured data
+      if (e.agentInvoked) {
+        e.respondWith(Promise.resolve(result));
+      }
+    });
+
+    function displayResults(result) {
+      document.getElementById('resultNetto').textContent = formatCurrency(result.netto_maandlasten);
+      document.getElementById('resultBruto').textContent = formatCurrency(result.bruto_maandlasten);
+      document.getElementById('resultRente').textContent = formatCurrency(result.rente_per_maand);
+      document.getElementById('resultAflossing').textContent = formatCurrency(result.aflossing_per_maand);
+      document.getElementById('resultAftrek').textContent = '- ' + formatCurrency(result.hypotheekrenteaftrek);
+      document.getElementById('resultRentePerc').textContent = result.rente_percentage + '%';
+      document.getElementById('results').classList.add('visible');
+    }
+
+    function formatCurrency(amount) {
+      return '\u20AC ' + amount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function resetForm() {
+      document.getElementById('hypotheekForm').reset();
+      document.getElementById('results').classList.remove('visible');
+      togglePartner(false);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // WebMCP IMPERATIVE API
+    // Registers an advanced advisory tool that agents can call
+    // ══════════════════════════════════════════════════════════════
+
+    if ('modelContext' in navigator) {
+      // Tool 1: The form itself is registered declaratively via HTML attributes
+
+      // Tool 2: Advisory tool (imperative)
+      navigator.modelContext.registerTool({
+        name: 'get_hypotheek_advies',
+        description: 'Geeft gepersonaliseerd hypotheekadvies op basis van persoonlijke situatie. Retourneert aanbevolen hypotheekvorm, geschatte maximale hypotheek, en tips.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            leeftijd: {
+              type: 'number',
+              description: 'Leeftijd van de aanvrager'
+            },
+            gezinssituatie: {
+              type: 'string',
+              enum: ['alleenstaand', 'samenwonend', 'getrouwd', 'gescheiden'],
+              description: 'Huidige gezinssituatie'
+            },
+            woonsituatie: {
+              type: 'string',
+              enum: ['eerste_woning', 'verhuizen', 'oversluiten', 'verbouwen'],
+              description: 'Doel van de hypotheek'
+            },
+            bruto_jaarinkomen: {
+              type: 'number',
+              description: 'Bruto jaarinkomen aanvrager'
+            },
+            partner_inkomen: {
+              type: 'number',
+              description: 'Bruto jaarinkomen partner (optioneel)'
+            },
+            eigen_geld: {
+              type: 'number',
+              description: 'Beschikbaar eigen geld (optioneel)'
+            }
+          },
+          required: ['leeftijd', 'gezinssituatie', 'woonsituatie', 'bruto_jaarinkomen']
+        },
+        handler: async (params) => {
+          logAgentActivity('tool_call', 'get_hypotheek_advies', params);
+
+          const totalIncome = params.bruto_jaarinkomen + (params.partner_inkomen || 0);
+          const maxHypotheek = Math.round(totalIncome * 4.25);
+          const isStarter = params.woonsituatie === 'eerste_woning';
+          const isYoung = params.leeftijd < 35;
+
+          let aanbevolen_vorm = 'annuitair';
+          let tips = [];
+
+          if (totalIncome > 80000) {
+            tips.push('Met jullie inkomen komen jullie in aanmerking voor de Leef Hypotheek met automatische renteverlaging.');
+          }
+
+          if (isStarter) {
+            tips.push('Als starter kun je mogelijk gebruik maken van de startersvrijstelling (geen overdrachtsbelasting tot €510.000).');
+            tips.push('Kijk ook naar de Nationale Hypotheek Garantie (NHG) voor hypotheken tot €435.000.');
+          }
+
+          if (isYoung && isStarter) {
+            tips.push('Tip: begin met annuitair. Je maandlasten zijn lager dan bij lineair, fijn als je net begint.');
+          }
+
+          if (params.leeftijd > 50) {
+            aanbevolen_vorm = 'lineair';
+            tips.push('Op jouw leeftijd kan lineair aantrekkelijker zijn: je bouwt sneller aflossing op richting pensioen.');
+          }
+
+          if (params.gezinssituatie === 'gescheiden') {
+            tips.push('Bij scheiding: laat je bestaande hypotheek opnieuw beoordelen. Mogelijk kun je de hypotheek alleen voortzetten.');
+          }
+
+          if (params.eigen_geld && params.eigen_geld > 0) {
+            tips.push(`Met €${params.eigen_geld.toLocaleString('nl-NL')} eigen geld kun je een lagere hypotheek afsluiten, wat je maandlasten verlaagt.`);
+          }
+
+          tips.push('Wil je persoonlijk advies? Bel ons op 055 579 8130 of maak een afspraak met een hypotheekadviseur.');
+
+          return {
+            geschatte_maximale_hypotheek: maxHypotheek,
+            aanbevolen_hypotheekvorm: aanbevolen_vorm,
+            indicatieve_rente: INTEREST_RATES[10] + '%',
+            geschatte_maandlasten: Math.round((maxHypotheek * (INTEREST_RATES[10]/100/12) * Math.pow(1 + INTEREST_RATES[10]/100/12, 360)) / (Math.pow(1 + INTEREST_RATES[10]/100/12, 360) - 1)),
+            tips: tips,
+            disclaimer: 'Dit is een indicatieve berekening. Voor een definitief aanbod is een persoonlijk adviesgesprek nodig.',
+            contact: {
+              telefoon: '055 579 8130',
+              openingstijden: 'Ma-vr 08:00-18:00, Za 09:00-13:00',
+              url: 'https://www.centraalbeheer.nl/hypotheek'
+            }
+          };
+        }
+      });
+
+      console.log('[WebMCP] 2 tools registered: bereken_maandlasten (declarative), get_hypotheek_advies (imperative)');
+    } else {
+      console.log('[WebMCP] navigator.modelContext not available. Enable in chrome://flags → "Experimental Web Platform Features"');
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // DEBUG PANEL (for workshop demo visibility)
+    // ══════════════════════════════════════════════════════════════
+
+    function togglePanel() {
+      document.getElementById('webmcpPanel').classList.toggle('visible');
+    }
+
+    function logAgentActivity(type, action, data) {
+      const log = document.getElementById('agentLog');
+      const time = new Date().toLocaleTimeString('nl-NL');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="timestamp">[${time}]</span> <span class="action">${action}</span>`;
+      if (data) {
+        entry.innerHTML += `<br/><span style="color:#888; font-size:11px;">${JSON.stringify(data).substring(0, 120)}...</span>`;
+      }
+
+      // Remove "waiting" message
+      if (log.querySelector('[class="log-entry"]:first-child')) {
+        const first = log.querySelector('.log-entry');
+        if (first.textContent.includes('waiting')) {
+          first.remove();
+        }
+      }
+
+      log.prepend(entry);
+    }
+  </script>
+
+</body>
+</html>
