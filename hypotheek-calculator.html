@@ -53,6 +53,7 @@
       color: var(--cb-gray-800);
       background: var(--cb-gray-100);
       line-height: 1.6;
+      padding-top: 36px;
     }
 
     /* ── WebMCP Status Bar ── */
@@ -1286,6 +1287,7 @@
         el.style.boxShadow = '0 0 0 3px rgba(0, 80, 240, 0.25)';
         el.value = value;
         el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
 
         setTimeout(function() {
           el.style.borderColor = '';
@@ -1472,19 +1474,23 @@
             }
 
             handlerPromise.then(function(result) {
-              ws.send(JSON.stringify({
-                type: 'tool_result',
-                id: callId,
-                result: result
-              }));
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'tool_result',
+                  id: callId,
+                  result: result
+                }));
+              }
               setStatus('connected', 'AI agent verbonden');
               console.log('[WebMCP Bridge] Sent tool_result for', toolName);
             }).catch(function(err) {
-              ws.send(JSON.stringify({
-                type: 'tool_result',
-                id: callId,
-                result: { error: err.message }
-              }));
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'tool_result',
+                  id: callId,
+                  result: { error: err.message }
+                }));
+              }
               setStatus('connected', 'AI agent verbonden');
             });
             break;
