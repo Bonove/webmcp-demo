@@ -762,7 +762,6 @@
             if (msg.role === 'page') {
               pageConnected = true;
               updateConnectionStatus();
-              addMessage('system', 'Website verbonden. Wachten op tools...');
               if (!isProcessing) setInputEnabled(true);
             }
             break;
@@ -772,14 +771,12 @@
               pageConnected = false;
               tools = [];
               updateConnectionStatus();
-              addMessage('system', 'Website niet meer verbonden. Herlaad de hypotheek-calculator.');
               setInputEnabled(false);
             }
             break;
 
           case 'tools_available':
             tools = msg.tools || [];
-            addMessage('system', 'Verbonden met hypotheek-calculator. ' + tools.length + ' tools beschikbaar.');
             console.log('[Chat] Tools received:', tools.map(function(t) { return t.name; }));
             if (!isProcessing) setInputEnabled(true);
             break;
