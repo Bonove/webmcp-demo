@@ -171,8 +171,23 @@ const wss = new WebSocketServer({ server });
 // Track connections by role: { page: ws | null, agent: ws | null }
 const peers = { page: null, agent: null };
 
+// Ping/pong heartbeat to keep Render proxy connections alive
+const HEARTBEAT_INTERVAL = 25000; // 25s (Render times out idle connections at ~60s)
+const heartbeat = setInterval(() => {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.ping();
+    }
+  });
+}, HEARTBEAT_INTERVAL);
+
+wss.on('close', () => clearInterval(heartbeat));
+
 wss.on('connection', (ws) => {
   let role = null;
+  ws.isAlive = true;
+
+  ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', (raw) => {
     let msg;
@@ -187,8 +202,9 @@ wss.on('connection', (ws) => {
       role = msg.role;
       if (role !== 'page' && role !== 'agent') { role = null; return; }
 
-      // If there was an old connection for this role, close it
+      // If there was an old connection for this role, mark it as replaced before closing
       if (peers[role] && peers[role] !== ws) {
+        peers[role]._replaced = true;
         peers[role].close();
       }
       peers[role] = ws;
@@ -222,18 +238,25 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     if (!role) return;
+
+    // If this connection was replaced by a new one, don't notify or clear
+    if (ws._replaced) {
+      console.log(`[ws] ${role} old connection closed (replaced)`);
+      return;
+    }
+
     console.log(`[ws] ${role} disconnected`);
 
     // Only clear if this is still the active connection for the role
     if (peers[role] === ws) {
       peers[role] = null;
-    }
 
-    // Notify the other side
-    const otherRole = role === 'page' ? 'agent' : 'page';
-    const other = peers[otherRole];
-    if (other && other.readyState === WebSocket.OPEN) {
-      other.send(JSON.stringify({ type: 'peer_disconnected', role }));
+      // Only notify the other side when the ACTIVE connection drops
+      const otherRole = role === 'page' ? 'agent' : 'page';
+      const other = peers[otherRole];
+      if (other && other.readyState === WebSocket.OPEN) {
+        other.send(JSON.stringify({ type: 'peer_disconnected', role }));
+      }
     }
   });
 

@@ -1620,7 +1620,6 @@
       ws.onopen = function() {
         console.log('[WebMCP Bridge] Connected, registering as page');
         ws.send(JSON.stringify({ type: 'register', role: 'page' }));
-        addActivity('\uD83D\uDD0C', 'Verbonden met relay server', 'Wachten op AI agent...', 'connect');
       };
 
       ws.onmessage = function(event) {
@@ -1638,7 +1637,6 @@
           case 'peer_connected':
             if (msg.role === 'agent') {
               setConnectionState(true);
-              addActivity('\uD83D\uDD0C', 'AI Agent verbonden', 'Tools worden gedeeld...', 'connect');
               ws.send(JSON.stringify({ type: 'tools_available', tools: tools }));
               console.log('[WebMCP Bridge] Sent tools_available with', tools.length, 'tools');
             }
@@ -1647,7 +1645,6 @@
           case 'peer_disconnected':
             if (msg.role === 'agent') {
               setConnectionState(false);
-              addActivity('\uD83D\uDD0C', 'AI Agent losgekoppeld', null, 'disconnect');
             }
             break;
 
@@ -1711,7 +1708,6 @@
       ws.onclose = function() {
         console.log('[WebMCP Bridge] Disconnected, reconnecting in 3s...');
         setConnectionState(false);
-        addActivity('\uD83D\uDD0C', 'Verbinding verbroken', 'Opnieuw verbinden over 3s...', 'disconnect');
         ws = null;
         if (reconnectTimeout) clearTimeout(reconnectTimeout);
         reconnectTimeout = setTimeout(connect, 3000);
